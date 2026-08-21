@@ -1,10 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  --color-primary: #FF6A00; /* Orange */
-  --color-primary-hover: #E55F00;
-  --color-success: #10B981; /* Green */
-  --color-success-hover: #059669;
+  --color-primary: #2e7d32; /* Frutta Green */
+  --color-primary-hover: #1b5e20;
+  --color-success: #43a047; /* Mid Green */
+  --color-success-hover: #2e7d32;
   --color-warning: #F59E0B; /* Amber */
   --color-danger: #EF4444; /* Red */
   
@@ -191,7 +191,7 @@ select:focus,
 textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(255, 106, 0, 0.1);
+  box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.15);
 }
 
 .helper-text {

@@ -3,6 +3,7 @@ const USER_KEY = 'frutta_user_profile';
 const MACHINES_KEY = 'frutta_machines';
 const LOGS_KEY = 'frutta_logs';
 const TEMPLATES_KEY = 'frutta_templates';
+const CT_SESSIONS_KEY = 'ct_check_sessions'; // Cooling Tunnel checklist sessions
 
 export const saveUser = (userData) => {
   localStorage.setItem(USER_KEY, JSON.stringify(userData));
@@ -51,3 +52,69 @@ export const saveLogLocal = (log) => {
   logs.push(log);
   localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
 };
+
+// ─── Cooling Tunnel Checklist Sessions ───────────────────────────────────────
+
+/**
+ * Save a completed check session.
+ * Session shape:
+ * {
+ *   id: string,           // unique id (timestamp based)
+ *   date: string,         // 'YYYY-MM-DD'
+ *   dayOfWeek: string,    // 'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT'
+ *   frequency: string,    // 'daily' | 'weekly'
+ *   inspector: string,    // name of person filling
+ *   items: [              // one entry per checklist item
+ *     { id: string, checked: boolean, remark: string }
+ *   ],
+ *   dayRemark: string,    // general remark for this day/session
+ *   submittedAt: string,  // ISO timestamp
+ * }
+ */
+export const saveCheckSession = (session) => {
+  const sessions = getAllCheckSessions();
+  // Replace if same date+frequency already exists (re-submit same day)
+  const idx = sessions.findIndex(
+    (s) => s.date === session.date && s.frequency === session.frequency
+  );
+  if (idx > -1) {
+    sessions[idx] = session;
+  } else {
+    sessions.push(session);
+  }
+  localStorage.setItem(CT_SESSIONS_KEY, JSON.stringify(sessions));
+};
+
+export const getAllCheckSessions = () => {
+  const data = localStorage.getItem(CT_SESSIONS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+/**
+ * Get sessions for a specific ISO week (Mon–Sat).
+ * Pass any date in the desired week.
+ */
+export const getSessionsByWeek = (weekDate = new Date()) => {
+  const allSessions = getAllCheckSessions();
+  const date = new Date(weekDate);
+  const day = date.getDay(); // 0=Sun
+  // Find the Monday of this week
+  const diffToMon = day === 0 ? -6 : 1 - day;
+  const mon = new Date(date);
+  mon.setDate(date.getDate() + diffToMon);
+  mon.setHours(0, 0, 0, 0);
+  const sat = new Date(mon);
+  sat.setDate(mon.getDate() + 5);
+  sat.setHours(23, 59, 59, 999);
+
+  return allSessions.filter((s) => {
+    const d = new Date(s.date);
+    return d >= mon && d <= sat;
+  });
+};
+
+export const deleteCheckSession = (sessionId) => {
+  const sessions = getAllCheckSessions().filter((s) => s.id !== sessionId);
+  localStorage.setItem(CT_SESSIONS_KEY, JSON.stringify(sessions));
+};
+

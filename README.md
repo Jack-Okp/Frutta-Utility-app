@@ -45,7 +45,7 @@ The app uses a "soft login" mechanism, allowing engineers to quickly log in with
    ```bash
    npm run dev
    ```
-   The app will be available at `http://localhost:5173/` (or whichever port Vite provides).
+   The app will be available at fruttautility`
 
 ### Google Sheets Integration (Optional but recommended)
 
