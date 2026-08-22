@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchMachines } from '../services/googleSheets';
-import { getAllCheckSessions } from '../services/storage';
+import { getCheckSessionsByMachine } from '../services/storage';
+import { deleteMachineLocal } from '../services/storage';
 import { FREQUENCY_META } from '../data/coolingTunnelChecklist';
 
 // ─── Machine type → stock image ──────────────────────────────────────────────
 const getMachineImage = (type = '') => {
   const t = type.toLowerCase();
-  if (t.includes('boiler'))                        return '/img-boiler.jpg';
-  if (t.includes('compressor'))                    return '/img-compressor.jpg';
-  if (t.includes('generator'))                     return '/img-generator.jpg';
-  if (t.includes('chiller'))                       return '/img-chiller.jpg';
+  if (t.includes('boiler')) return '/img-boiler.jpg';
+  if (t.includes('compressor')) return '/img-compressor.jpg';
+  if (t.includes('generator')) return '/img-generator.jpg';
+  if (t.includes('chiller')) return '/img-chiller.jpg';
   if (t.includes('cooling') || t.includes('tunnel')) return '/img-cooling-tunnel.jpg';
   return '/img-boiler.jpg'; // generic fallback
 };
@@ -51,7 +52,7 @@ const StatCard = ({ icon, label, value, accent }) => (
       boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
     }}
   >
-    <span style={{ fontSize: '1.4rem' }}>{icon}</span>
+    <div style={{ color: accent || '#6b7280', marginBottom: '2px' }}>{icon}</div>
     <span style={{ fontSize: '0.95rem', fontWeight: 800, color: accent || 'var(--color-text)' }}>
       {value}
     </span>
@@ -112,8 +113,8 @@ const CheckCard = ({ freq, lastDate, onClick, todayDone }) => {
           {todayDone
             ? 'Completed today ✓'
             : lastDate
-            ? `Last done: ${lastDate}`
-            : 'Not yet completed'}
+              ? `Last done: ${lastDate}`
+              : 'Not yet completed'}
         </div>
       </div>
 
@@ -132,6 +133,11 @@ const MachineDetail = () => {
   const [sessions, setSessions] = useState([]);
   const [imgLoaded, setImgLoaded] = useState(false);
 
+  // ── Decommission modal state ──────────────────────────────────────────────
+  const [showDecommission, setShowDecommission] = useState(false);
+  const [decommForm, setDecommForm] = useState({ name: '', model: '', date: '' });
+  const [decommitting, setDecommitting] = useState(false);
+
   const todayISO = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
@@ -139,7 +145,7 @@ const MachineDetail = () => {
       const machines = await fetchMachines();
       const found = machines.find((m) => String(m.machineId) === String(id));
       setMachine(found || null);
-      setSessions(getAllCheckSessions());
+      setSessions(getCheckSessionsByMachine(id));
       setLoading(false);
     };
     load();
@@ -149,7 +155,6 @@ const MachineDetail = () => {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏳</div>
           <p style={{ color: 'var(--color-text-light)' }}>Loading...</p>
         </div>
       </div>
@@ -160,7 +165,6 @@ const MachineDetail = () => {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⚠️</div>
           <p style={{ color: 'var(--color-text-light)' }}>Machine not found.</p>
           <button className="btn btn-primary" style={{ marginTop: '12px' }} onClick={() => navigate('/dashboard')}>
             Back to Dashboard
@@ -173,6 +177,21 @@ const MachineDetail = () => {
   const health = getMachineHealth(sessions);
   const isHealthy = health === 'healthy';
   const machineImage = getMachineImage(machine.machineType);
+
+  // ── Decommission handler ──────────────────────────────────────────────────
+  const canDecommission =
+    decommForm.name.trim().toLowerCase() === machine.machineName?.trim().toLowerCase() &&
+    decommForm.model.trim().toLowerCase() === (machine.model || '').trim().toLowerCase() &&
+    decommForm.date.trim() !== '';
+
+  const handleDecommission = () => {
+    if (!canDecommission) return;
+    setDecommitting(true);
+    deleteMachineLocal(machine.machineId);
+    setTimeout(() => {
+      navigate('/dashboard');
+    }, 400);
+  };
 
   // Last session dates per frequency
   const lastDailySession = sessions
@@ -236,7 +255,9 @@ const MachineDetail = () => {
           }}
           aria-label="Back"
         >
-          ‹
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
         </button>
 
         {/* Machine name + tag overlaid on image */}
@@ -281,18 +302,30 @@ const MachineDetail = () => {
         {/* ── Quick stats row ── */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
           <StatCard
-            icon="⏱️"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+              </svg>
+            }
             label="Running Hours"
             value={machine.currentRunningHours != null ? `${machine.currentRunningHours} hrs` : '—'}
             accent="var(--color-primary)"
           />
           <StatCard
-            icon="📅"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            }
             label="Last Check"
             value={machine.lastMaintenanceDate ? formatDate(machine.lastMaintenanceDate) : '—'}
           />
           <StatCard
-            icon="🔧"
+            icon={
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14" />
+              </svg>
+            }
             label="Next Maint."
             value={machine.nextMaintenanceDate ? formatDate(machine.nextMaintenanceDate) : '—'}
           />
@@ -326,6 +359,54 @@ const MachineDetail = () => {
             onClick={() => navigate(`/machine/${id}/check/weekly`)}
             todayDone={weeklyDoneToday}
           />
+
+          <button
+            onClick={() => navigate(`/machine/${id}/edit-checklist`)}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '14px 16px',
+              borderRadius: '14px',
+              border: '1px solid var(--color-border)',
+              background: '#fff',
+              cursor: 'pointer',
+              marginTop: '12px',
+              textAlign: 'left',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: 'var(--color-primary-light)',
+                  color: 'var(--color-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+              </div>
+              <div>
+                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                  Configure Checklist Items
+                </span>
+                <span style={{ fontSize: '0.72rem', color: 'var(--color-text-light)' }}>
+                  Add, update or remove inspection tasks
+                </span>
+              </div>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-light)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
         </div>
 
         {/* ── Section: Records ── */}
@@ -359,14 +440,18 @@ const MachineDetail = () => {
             boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
           }}
         >
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-            📋
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#eff6ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" />
+            </svg>
           </div>
           <div style={{ flex: 1, textAlign: 'left' }}>
             <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>View History</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)' }}>All past checklist sessions</div>
           </div>
-          <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>›</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </button>
 
         {/* Export Excel */}
@@ -386,14 +471,18 @@ const MachineDetail = () => {
             boxShadow: '0 1px 4px rgba(0,0,0,0.05)',
           }}
         >
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>
-            📥
+          <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#f0fdf4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
           </div>
           <div style={{ flex: 1, textAlign: 'left' }}>
             <div style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-text)' }}>Export Checklist</div>
             <div style={{ fontSize: '0.72rem', color: 'var(--color-text-light)' }}>Download weekly report as Excel</div>
           </div>
-          <span style={{ color: '#9ca3af', fontSize: '1.1rem' }}>›</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
         </button>
 
         {/* ── Machine info detail card ── */}
@@ -446,7 +535,174 @@ const MachineDetail = () => {
           ))}
         </div>
 
+        {/* ── Danger Zone ── */}
+        <div style={{ marginTop: '28px', marginBottom: '24px' }}>
+          <p style={{ margin: '0 0 10px', fontSize: '0.7rem', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+            Danger Zone
+          </p>
+          <button
+            id="decommission-open-btn"
+            onClick={() => { setDecommForm({ name: '', model: '', date: '' }); setShowDecommission(true); }}
+            style={{
+              width: '100%', display: 'flex', alignItems: 'center', gap: '14px',
+              padding: '14px 16px', borderRadius: '14px', border: '1.5px solid #fecaca',
+              background: '#fff5f5', cursor: 'pointer', textAlign: 'left',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+            }}
+          >
+            <div style={{ width: '42px', height: '42px', borderRadius: '12px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                <path d="M10 11v6" /><path d="M14 11v6" />
+                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+              </svg>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '0.9rem', color: '#dc2626' }}>Decommission Machine</div>
+              <div style={{ fontSize: '0.72rem', color: '#f87171' }}>Permanently remove this machine and its records</div>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
+        </div>
+
       </div>
+
+      {/* ── Decommission Confirmation Modal ───────────────────────────── */}
+      {showDecommission && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget) setShowDecommission(false); }}
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999,
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+            animation: 'fadeInOverlay 0.2s ease',
+          }}
+        >
+          <div
+            style={{
+              width: '100%', maxWidth: '520px', background: '#fff',
+              borderRadius: '24px 24px 0 0', padding: '24px 20px 40px',
+              animation: 'slideUpModal 0.3s cubic-bezier(0.22,1,0.36,1)',
+            }}
+          >
+            <div style={{ width: '40px', height: '4px', borderRadius: '99px', background: '#e5e7eb', margin: '0 auto 22px' }} />
+
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', marginBottom: '22px' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              </div>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#dc2626' }}>Decommission Machine</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: '#6b7280', lineHeight: 1.5 }}>
+                  This action is <strong>irreversible</strong>. Confirm the details below to proceed.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Machine Name</label>
+                <input
+                  id="decomm-name"
+                  type="text"
+                  placeholder={`Type "${machine.machineName}" exactly`}
+                  value={decommForm.name}
+                  onChange={(e) => setDecommForm((f) => ({ ...f, name: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '10px', boxSizing: 'border-box',
+                    border: `1.5px solid ${decommForm.name && decommForm.name.trim().toLowerCase() === machine.machineName?.trim().toLowerCase() ? '#86efac' : '#e5e7eb'}`,
+                    fontSize: '0.88rem', outline: 'none', background: '#f9fafb', transition: 'border-color 0.15s',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Model Number</label>
+                <input
+                  id="decomm-model"
+                  type="text"
+                  placeholder={machine.model ? `Type "${machine.model}" exactly` : 'Enter model number'}
+                  value={decommForm.model}
+                  onChange={(e) => setDecommForm((f) => ({ ...f, model: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '10px', boxSizing: 'border-box',
+                    border: `1.5px solid ${decommForm.model && decommForm.model.trim().toLowerCase() === (machine.model || '').trim().toLowerCase() ? '#86efac' : '#e5e7eb'}`,
+                    fontSize: '0.88rem', outline: 'none', background: '#f9fafb', transition: 'border-color 0.15s',
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Date of Decommissioning</label>
+                <input
+                  id="decomm-date"
+                  type="date"
+                  value={decommForm.date}
+                  onChange={(e) => setDecommForm((f) => ({ ...f, date: e.target.value }))}
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: '10px', boxSizing: 'border-box',
+                    border: `1.5px solid ${decommForm.date ? '#86efac' : '#e5e7eb'}`,
+                    fontSize: '0.88rem', outline: 'none', background: '#f9fafb', transition: 'border-color 0.15s',
+                  }}
+                />
+              </div>
+
+              {!canDecommission && (
+                <p style={{ margin: 0, fontSize: '0.72rem', color: '#9ca3af', textAlign: 'center' }}>
+                  All fields must match the machine's registered details to proceed.
+                </p>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+                <button
+                  onClick={() => setShowDecommission(false)}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '12px',
+                    border: '1px solid var(--color-border)', background: '#fff',
+                    fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)', cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  id="confirm-decommission-btn"
+                  onClick={handleDecommission}
+                  disabled={!canDecommission || decommitting}
+                  style={{
+                    flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
+                    background: canDecommission ? '#dc2626' : '#f3f4f6',
+                    color: canDecommission ? '#fff' : '#9ca3af',
+                    fontSize: '0.9rem', fontWeight: 800,
+                    cursor: canDecommission ? 'pointer' : 'not-allowed',
+                    transition: 'all 0.2s',
+                    boxShadow: canDecommission ? '0 4px 12px rgba(220,38,38,0.3)' : 'none',
+                  }}
+                >
+                  {decommitting ? 'Removing...' : 'Decommission'}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes fadeInOverlay {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+        @keyframes slideUpModal {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };

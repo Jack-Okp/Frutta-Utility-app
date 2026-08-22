@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CHECKLIST_ITEMS, getItemsByFrequency, FREQUENCY_META, getDayOfWeek } from '../data/coolingTunnelChecklist';
+import { FREQUENCY_META, getDayOfWeek } from '../data/coolingTunnelChecklist';
+import { fetchMachines } from '../services/googleSheets';
+import { getDefaultChecklist } from '../data/defaultChecklists';
 import { saveCheckSession, getAllCheckSessions, getUser } from '../services/storage';
 
 // ─── Helper ────────────────────────────────────────────────────────────────
@@ -15,18 +17,12 @@ const ChecklistEntry = () => {
   const todayDate = todayISO();
   const todayDay = getDayOfWeek(new Date());
 
-  // Active items for this period
-  const items = getItemsByFrequency(period);
-  const meta = FREQUENCY_META[period] || FREQUENCY_META.daily;
+  const [machine, setMachine] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState([]);
+  const [itemStates, setItemStates] = useState({});
 
-  // Per-item state: { [itemId]: { checked: bool, remark: string, showRemark: bool } }
-  const [itemStates, setItemStates] = useState(() => {
-    const init = {};
-    items.forEach((item) => {
-      init[item.id] = { checked: false, remark: '', showRemark: false };
-    });
-    return init;
-  });
+  const meta = FREQUENCY_META[period] || FREQUENCY_META.daily;
 
   const [dayRemark, setDayRemark] = useState('');
   const [saving, setSaving] = useState(false);
@@ -34,25 +30,45 @@ const ChecklistEntry = () => {
 
   // Check if today's session already exists
   useEffect(() => {
-    const existing = getAllCheckSessions().find(
-      (s) => s.date === todayDate && s.frequency === period
-    );
-    if (existing) {
-      // Pre-fill with saved data
-      const restored = {};
-      items.forEach((item) => {
-        const saved = existing.items.find((i) => i.id === item.id);
-        restored[item.id] = {
-          checked: saved?.checked || false,
-          remark: saved?.remark || '',
-          showRemark: !!(saved?.remark),
-        };
-      });
-      setItemStates(restored);
-      setDayRemark(existing.dayRemark || '');
-      setAlreadySaved(true);
-    }
-  }, [period]);
+    const loadData = async () => {
+      const machines = await fetchMachines();
+      const found = machines.find((m) => String(m.machineId) === String(id));
+      if (found) {
+        setMachine(found);
+        
+        // Resolve checklist items
+        let checklist = found.checklistItems;
+        if (!checklist || checklist.length === 0) {
+          checklist = getDefaultChecklist(found.machineType);
+        }
+        
+        const filtered = checklist.filter((item) => item.frequency === period);
+        setItems(filtered);
+
+        const existing = getAllCheckSessions().find(
+          (s) => String(s.machineId) === String(id) && s.date === todayDate && s.frequency === period
+        );
+
+        const restoredStates = {};
+        filtered.forEach((item) => {
+          const saved = existing?.items.find((i) => i.id === item.id);
+          restoredStates[item.id] = {
+            checked: saved?.checked || false,
+            remark: saved?.remark || '',
+            showRemark: !!(saved?.remark),
+          };
+        });
+
+        setItemStates(restoredStates);
+        if (existing) {
+          setDayRemark(existing.dayRemark || '');
+          setAlreadySaved(true);
+        }
+      }
+      setLoading(false);
+    };
+    loadData();
+  }, [id, period]);
 
   const checkedCount = Object.values(itemStates).filter((s) => s.checked).length;
   const progress = items.length > 0 ? Math.round((checkedCount / items.length) * 100) : 0;
@@ -81,7 +97,8 @@ const ChecklistEntry = () => {
   const handleSubmit = () => {
     setSaving(true);
     const session = {
-      id: `${period}_${todayDate}`,
+      id: `${id}_${period}_${todayDate}`,
+      machineId: id,
       date: todayDate,
       dayOfWeek: todayDay,
       frequency: period,
@@ -103,10 +120,32 @@ const ChecklistEntry = () => {
 
   // Group items by part for visual grouping
   const groups = items.reduce((acc, item) => {
-    if (!acc[item.part]) acc[item.part] = [];
-    acc[item.part].push(item);
+    const partName = item.part || 'General';
+    if (!acc[partName]) acc[partName] = [];
+    acc[partName].push(item);
     return acc;
   }, {});
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--color-text-light)' }}>Loading checklist...</p>
+      </div>
+    );
+  }
+
+  if (!machine) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: 'var(--color-text-light)' }}>Machine not found.</p>
+          <button className="btn btn-primary" onClick={() => navigate('/dashboard')}>
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)', paddingBottom: '6rem' }}>
@@ -137,7 +176,7 @@ const ChecklistEntry = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1rem' }}>Cooling Tunnel Checklist</h2>
+              <h2 style={{ margin: 0, fontSize: '1rem' }}>{machine.machineName}</h2>
               <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
                 {todayDate} &nbsp;·&nbsp; {todayDay} &nbsp;·&nbsp; {user?.name || 'Inspector'}
               </p>

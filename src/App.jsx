@@ -9,6 +9,7 @@ import ChecklistEntry from './pages/ChecklistEntry';
 import History from './pages/History';
 import Export from './pages/Export';
 import TemplateBuilder from './pages/TemplateBuilder';
+import ChecklistEditor from './pages/ChecklistEditor';
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
       <Route path="/machine/:id/check/:period" element={<ChecklistEntry />} />
       <Route path="/machine/:id/history" element={<History />} />
       <Route path="/machine/:id/templates" element={<TemplateBuilder />} />
+      <Route path="/machine/:id/edit-checklist" element={<ChecklistEditor />} />
       <Route path="/export" element={<Export />} />
     </Routes>
   );

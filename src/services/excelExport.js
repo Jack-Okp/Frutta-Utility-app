@@ -10,11 +10,13 @@ const TICK = '✓';
 /**
  * Build and download the Excel checklist for a given week.
  *
- * @param {Object[]} sessions  - Array of check sessions from getSessionsByWeek()
- * @param {string}   weekLabel - Human-readable label for the week, e.g. "19–24 Aug 2026"
- * @param {string}   inspector - Inspector name (shown in header)
+ * @param {Object[]} sessions        - Array of check sessions from getSessionsByWeek()
+ * @param {string}   weekLabel       - Human-readable label for the week, e.g. "19–24 Aug 2026"
+ * @param {string}   inspector       - Inspector name (shown in header)
+ * @param {string}   machineName     - Name of the machine being exported
+ * @param {Object[]} checklistItems  - Dynamic checklist items for this machine
  */
-export const exportChecklistToExcel = (sessions, weekLabel, inspector = '') => {
+export const exportChecklistToExcel = (sessions, weekLabel, inspector = '', machineName = 'Machine', checklistItems = []) => {
   // ── 1. Pre-process sessions into lookup maps ─────────────────────────────
   // dailyMap[itemId][dayOfWeek] = { checked, remark }
   const dailyMap = {};
@@ -40,7 +42,7 @@ export const exportChecklistToExcel = (sessions, weekLabel, inspector = '') => {
   const rows = [];
 
   // Title row
-  rows.push(['Cooling Tunnel Checklist']);
+  rows.push([`${machineName} Checklist`]);
   // Blank row
   rows.push([]);
   // Sub-header: inspector + week
@@ -66,18 +68,20 @@ export const exportChecklistToExcel = (sessions, weekLabel, inspector = '') => {
   rows.push(['S/N', 'PART', 'CHECK', '●', '■', '▲', '♦', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'REMARK']);
 
   // Data rows — one per checklist item
-  CHECKLIST_ITEMS.forEach((item) => {
+  const itemsToUse = checklistItems && checklistItems.length > 0 ? checklistItems : CHECKLIST_ITEMS;
+  
+  itemsToUse.forEach((item, idx) => {
     const row = [
-      item.sn ?? '',        // S/N
-      item.part,            // PART
+      item.sn ?? (idx + 1), // Fallback S/N if missing
+      item.part || 'General', // PART
       item.description,     // CHECK
     ];
 
     // Frequency symbol columns (●  ■  ▲  ♦)
-    row.push(item.frequency === 'daily' ? item.symbol : '');    // ●
-    row.push(item.frequency === 'weekly' ? item.symbol : '');   // ■
-    row.push(item.frequency === 'monthly' ? item.symbol : '');  // ▲
-    row.push(item.frequency === 'annually' ? item.symbol : ''); // ♦
+    row.push(item.frequency === 'daily' ? '●' : '');    // ●
+    row.push(item.frequency === 'weekly' ? '■' : '');   // ■
+    row.push(item.frequency === 'monthly' ? '▲' : '');  // ▲
+    row.push(item.frequency === 'annually' ? '♦' : ''); // ♦
 
     // Day columns — MON TUE WED THU FRI SAT
     let remarkText = '';
@@ -145,6 +149,7 @@ export const exportChecklistToExcel = (sessions, weekLabel, inspector = '') => {
   XLSX.utils.book_append_sheet(wb, ws, 'Checklist');
 
   // Trigger download
-  const filename = `CoolingTunnel_Checklist_${weekLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
+  const cleanMachineName = machineName.replace(/[^a-zA-Z0-9]/g, '_');
+  const filename = `${cleanMachineName}_Checklist_${weekLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`;
   XLSX.writeFile(wb, filename);
 };

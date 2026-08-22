@@ -69,15 +69,16 @@ const buildNotifications = (machines, sessions) => {
   return notes.slice(0, 3); // max 3 shown
 };
 
-// ─── Machine type icon ────────────────────────────────────────────────────────
-const typeIcon = (type = '') => {
+// ─── Machine type abbreviation ───────────────────────────────────────────────
+const typeAbbr = (type = '') => {
   const t = type.toLowerCase();
-  if (t.includes('boiler')) return '🔥';
-  if (t.includes('generator')) return '⚡';
-  if (t.includes('compressor')) return '🌀';
-  if (t.includes('chiller') || t.includes('cooling')) return '❄️';
-  if (t.includes('pump')) return '💧';
-  return '⚙️';
+  if (t.includes('boiler'))                          return 'BLR';
+  if (t.includes('generator'))                       return 'GEN';
+  if (t.includes('compressor'))                      return 'CMP';
+  if (t.includes('chiller'))                         return 'CHL';
+  if (t.includes('cooling') || t.includes('tunnel')) return 'CT';
+  if (t.includes('pump'))                            return 'PMP';
+  return 'MCH';
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -179,14 +180,16 @@ const Dashboard = () => {
               border: 'none',
               cursor: 'pointer',
               position: 'relative',
-              padding: '4px',
-              fontSize: '1.5rem',
+              padding: '4px 6px',
               lineHeight: 1,
-              color: notifCount > 0 ? '#1b5e20' : '#9ca3af',
             }}
             aria-label="Notifications"
           >
-            🔔
+            {/* SVG bell */}
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={notifCount > 0 ? '#1b5e20' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+            </svg>
             {notifCount > 0 && (
               <span
                 style={{
@@ -226,7 +229,7 @@ const Dashboard = () => {
               letterSpacing: '-0.02em',
             }}
           >
-            Hi, {firstName} 👋
+            Hi, {firstName}
           </h1>
           <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -241,12 +244,14 @@ const Dashboard = () => {
               left: '12px',
               top: '50%',
               transform: 'translateY(-50%)',
-              fontSize: '1rem',
-              color: '#9ca3af',
               pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
-            🔍
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
           </span>
           <input
             id="machine-search-input"
@@ -316,13 +321,13 @@ const Dashboard = () => {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                🔔 {notifCount} Notification{notifCount !== 1 ? 's' : ''}
+                {notifCount} Notification{notifCount !== 1 ? 's' : ''}
               </span>
               <button
                 onClick={() => setShowNotifications(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.75rem' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', fontSize: '0.75rem', fontWeight: 700 }}
               >
-                ✕
+                &times;
               </button>
             </div>
             {notifications.map((n) => (
@@ -338,7 +343,7 @@ const Dashboard = () => {
                   color: '#92400e',
                 }}
               >
-                <span style={{ marginTop: '1px' }}>⚠️</span>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#f59e0b', flexShrink: 0, marginTop: '5px', display: 'inline-block' }} />
                 <span>{n.text}</span>
               </div>
             ))}
@@ -357,7 +362,6 @@ const Dashboard = () => {
         {/* ── Content area ───────────────────────────────────────────────── */}
         {loading ? (
           <div style={{ textAlign: 'center', paddingTop: '60px' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>⏳</div>
             <p style={{ color: 'var(--color-text-light)', margin: 0 }}>Loading machines...</p>
           </div>
 
@@ -376,18 +380,21 @@ const Dashboard = () => {
           >
             <div
               style={{
-                width: '90px',
-                height: '90px',
+                width: '80px',
+                height: '80px',
                 borderRadius: '50%',
                 background: '#f0fdf4',
                 border: '2px dashed #86efac',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2.4rem',
               }}
             >
-              ⚙️
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/>
+              </svg>
             </div>
             <h2 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--color-text)' }}>No machines added yet</h2>
             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--color-text-light)', maxWidth: '240px' }}>
@@ -416,7 +423,6 @@ const Dashboard = () => {
         ) : filteredMachines.length === 0 ? (
           /* Search returned nothing */
           <div style={{ textAlign: 'center', paddingTop: '40px' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>🔍</div>
             <p style={{ color: 'var(--color-text-light)', margin: 0 }}>No machines match "{search}"</p>
           </div>
 
@@ -457,17 +463,19 @@ const Dashboard = () => {
                     e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.06)';
                   }}
                 >
-                  {/* Machine type icon top-right */}
+                  {/* Machine type abbreviation top-right */}
                   <span
                     style={{
                       position: 'absolute',
                       top: '7px',
-                      right: '7px',
-                      fontSize: '0.9rem',
-                      opacity: 0.5,
+                      right: '6px',
+                      fontSize: '0.55rem',
+                      fontWeight: 700,
+                      color: '#9ca3af',
+                      letterSpacing: '0.04em',
                     }}
                   >
-                    {typeIcon(machine.machineType)}
+                    {typeAbbr(machine.machineType)}
                   </span>
 
                   {/* Health badge */}

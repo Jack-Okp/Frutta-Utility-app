@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { getSessionsByWeek, getAllCheckSessions } from '../services/storage';
 import { exportChecklistToExcel } from '../services/excelExport';
-import { DAYS_OF_WEEK, CHECKLIST_ITEMS, FREQUENCY_META } from '../data/coolingTunnelChecklist';
+import { DAYS_OF_WEEK, FREQUENCY_META } from '../data/coolingTunnelChecklist';
+import { fetchMachines } from '../services/googleSheets';
+import { getDefaultChecklist } from '../data/defaultChecklists';
 
 // ── Week helpers ─────────────────────────────────────────────────────────────
 const getMondayOfWeek = (date = new Date()) => {
@@ -22,7 +24,10 @@ const toISO = (d) => d.toISOString().slice(0, 10);
 // ─────────────────────────────────────────────────────────────────────────────
 
 const Export = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
+  const [machine, setMachine] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [selectedMonday, setSelectedMonday] = useState(getMondayOfWeek());
   const [sessions, setSessions] = useState([]);
   const [inspector, setInspector] = useState('');
@@ -31,11 +36,26 @@ const Export = () => {
   saturday.setDate(selectedMonday.getDate() + 5);
   const weekLabel = `${formatDate(selectedMonday)} – ${formatDate(saturday)}`;
 
-  // Reload sessions when week changes
+  // Load machine details
   useEffect(() => {
-    const found = getSessionsByWeek(selectedMonday);
-    setSessions(found);
-  }, [selectedMonday]);
+    const loadMachine = async () => {
+      const machines = await fetchMachines();
+      const found = machines.find((m) => String(m.machineId) === String(id));
+      if (found) {
+        setMachine(found);
+      }
+    };
+    loadMachine();
+  }, [id]);
+
+  // Reload sessions when week or machine changes
+  useEffect(() => {
+    if (id) {
+      const found = getSessionsByWeek(id, selectedMonday);
+      setSessions(found);
+      setLoading(false);
+    }
+  }, [id, selectedMonday]);
 
   const goToPrevWeek = () => {
     const d = new Date(selectedMonday);
@@ -50,8 +70,14 @@ const Export = () => {
   };
 
   const handleExport = () => {
-    exportChecklistToExcel(sessions, weekLabel, inspector);
+    if (!machine) return;
+    exportChecklistToExcel(sessions, weekLabel, inspector, machine.machineName, baseItems);
   };
+
+  // Resolve dynamic checklist items
+  const baseItems = machine?.checklistItems || (machine ? getDefaultChecklist(machine.machineType) : []);
+  const dailyItems = baseItems.filter((i) => i.frequency === 'daily');
+  const weeklyItems = baseItems.filter((i) => i.frequency === 'weekly');
 
   // ── Build a week summary grid for preview ────────────────────────────────
   const dailySessions = sessions.filter((s) => s.frequency === 'daily');
@@ -62,12 +88,17 @@ const Export = () => {
   dailySessions.forEach((s) => { dayMap[s.dayOfWeek] = s; });
   const weeklySession = weeklySessions[0] || null;
 
-  const dailyItems = CHECKLIST_ITEMS.filter((i) => i.frequency === 'daily');
-  const weeklyItems = CHECKLIST_ITEMS.filter((i) => i.frequency === 'weekly');
-
   const completedDays = DAYS_OF_WEEK.filter((d) => dayMap[d]);
   const weeklyDone = !!weeklySession;
   const totalDone = completedDays.length + (weeklyDone ? 1 : 0);
+
+  if (loading || !machine) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <p style={{ color: 'var(--color-text-light)' }}>Loading export details...</p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg)', paddingBottom: '2rem' }}>
@@ -162,8 +193,18 @@ const Export = () => {
                     }}
                   >
                     <div style={{ fontSize: '0.65rem', color: 'var(--color-text-light)', fontWeight: 600 }}>{day}</div>
-                    <div style={{ fontSize: '1rem', marginTop: '2px' }}>
-                      {sess ? (checkedCount === total ? '✅' : '🟡') : '—'}
+                    <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'center' }}>
+                      {sess ? (
+                        checkedCount === total ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                          </svg>
+                        ) : (
+                          <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f59e0b', display: 'inline-block' }} />
+                        )
+                      ) : (
+                        <span style={{ fontSize: '0.65rem', color: '#d1d5db' }}>—</span>
+                      )}
                     </div>
                     {sess && (
                       <div style={{ fontSize: '0.6rem', color: '#3b82f6' }}>{checkedCount}/{total}</div>
@@ -190,7 +231,13 @@ const Export = () => {
                 gap: '10px',
               }}
             >
-              <span style={{ fontSize: '1.2rem' }}>{weeklySession ? '✅' : '⬜'}</span>
+              <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: weeklySession ? '#16a34a' : '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {weeklySession ? (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                ) : null}
+              </div>
               <div>
                 <div style={{ fontSize: '0.85rem', fontWeight: 600, color: weeklySession ? '#92400e' : 'var(--color-text)' }}>
                   {weeklySession
@@ -287,12 +334,12 @@ const Export = () => {
                       <td style={{ padding: '6px', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-light)', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.frequency === 'daily'
                           ? DAYS_OF_WEEK
-                              .map((day) => {
-                                const entry = dayMap[day]?.items.find((i) => i.id === item.id);
-                                return entry?.remark ? `${day}: ${entry.remark}` : '';
-                              })
-                              .filter(Boolean)
-                              .join(', ') || '-'
+                            .map((day) => {
+                              const entry = dayMap[day]?.items.find((i) => i.id === item.id);
+                              return entry?.remark ? `${day}: ${entry.remark}` : '';
+                            })
+                            .filter(Boolean)
+                            .join(', ') || '-'
                           : weeklySession?.items.find((i) => i.id === item.id)?.remark || '-'}
                       </td>
                     </tr>
@@ -305,7 +352,13 @@ const Export = () => {
 
         {sessions.length === 0 && (
           <div className="card text-center mb-4" style={{ padding: '32px 16px', color: 'var(--color-text-light)' }}>
-            <div style={{ fontSize: '2rem', marginBottom: '8px' }}>📋</div>
+            <div style={{ textAlign: 'center', paddingTop: '40px' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" />
+                </svg>
+              </div>
+            </div>
             <p style={{ margin: 0 }}>No checklist sessions recorded for this week.</p>
             <p style={{ margin: '4px 0 0', fontSize: '0.8rem' }}>Go back and fill in a daily or weekly check.</p>
           </div>

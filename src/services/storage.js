@@ -26,6 +26,20 @@ export const saveMachineLocal = (machine) => {
   localStorage.setItem(MACHINES_KEY, JSON.stringify(machines));
 };
 
+export const deleteMachineLocal = (machineId) => {
+  const machines = getMachinesLocal().filter(
+    (m) => String(m.machineId) !== String(machineId)
+  );
+  localStorage.setItem(MACHINES_KEY, JSON.stringify(machines));
+};
+
+export const updateMachineLocal = (updatedMachine) => {
+  const machines = getMachinesLocal().map((m) =>
+    String(m.machineId) === String(updatedMachine.machineId) ? updatedMachine : m
+  );
+  localStorage.setItem(MACHINES_KEY, JSON.stringify(machines));
+};
+
 export const getTemplatesLocal = () => {
   const data = localStorage.getItem(TEMPLATES_KEY);
   return data ? JSON.parse(data) : [];
@@ -73,9 +87,11 @@ export const saveLogLocal = (log) => {
  */
 export const saveCheckSession = (session) => {
   const sessions = getAllCheckSessions();
-  // Replace if same date+frequency already exists (re-submit same day)
+  // Replace if same machine, date, and frequency already exists
   const idx = sessions.findIndex(
-    (s) => s.date === session.date && s.frequency === session.frequency
+    (s) => String(s.machineId) === String(session.machineId) &&
+           s.date === session.date &&
+           s.frequency === session.frequency
   );
   if (idx > -1) {
     sessions[idx] = session;
@@ -90,11 +106,15 @@ export const getAllCheckSessions = () => {
   return data ? JSON.parse(data) : [];
 };
 
+export const getCheckSessionsByMachine = (machineId) => {
+  return getAllCheckSessions().filter((s) => String(s.machineId) === String(machineId));
+};
+
 /**
- * Get sessions for a specific ISO week (Mon–Sat).
+ * Get sessions for a specific machine and ISO week (Mon–Sat).
  * Pass any date in the desired week.
  */
-export const getSessionsByWeek = (weekDate = new Date()) => {
+export const getSessionsByWeek = (machineId, weekDate = new Date()) => {
   const allSessions = getAllCheckSessions();
   const date = new Date(weekDate);
   const day = date.getDay(); // 0=Sun
@@ -108,6 +128,7 @@ export const getSessionsByWeek = (weekDate = new Date()) => {
   sat.setHours(23, 59, 59, 999);
 
   return allSessions.filter((s) => {
+    if (machineId && String(s.machineId) !== String(machineId)) return false;
     const d = new Date(s.date);
     return d >= mon && d <= sat;
   });

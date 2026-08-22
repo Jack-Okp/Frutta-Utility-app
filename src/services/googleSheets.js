@@ -1,6 +1,6 @@
 // src/services/googleSheets.js
 import { 
-  getMachinesLocal, saveMachineLocal, 
+  getMachinesLocal, saveMachineLocal, updateMachineLocal,
   getTemplatesLocal, saveTemplateLocal,
   getLogsLocal, saveLogLocal, getUser 
 } from './storage';
@@ -68,6 +68,11 @@ export const fetchMachines = async () => {
 export const saveMachine = async (machine) => {
   saveMachineLocal(machine);
   await postToGoogle('Machines', 'insert', machine);
+};
+
+export const updateMachine = async (machine) => {
+  updateMachineLocal(machine);
+  await postToGoogle('Machines', 'update', machine, 'machineId', machine.machineId);
 };
 
 export const fetchTemplates = async () => {
