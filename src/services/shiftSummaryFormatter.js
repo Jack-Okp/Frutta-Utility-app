@@ -31,12 +31,12 @@ export const formatWhatsAppShiftSummary = ({
   lines.push('---------------------------------------');
   lines.push('');
 
-  // Status mapping emojis
+  // Status mapping text tags
   const statusEmoji = {
-    'OK': 'OK ✅',
-    'Degraded': 'OK 🟡 (Reduced efficiency)',
-    'Not OK': 'Not OK ❌',
-    'Standby': 'Standby ⚪ (No planned production)',
+    'OK': 'OK [PASSED]',
+    'Degraded': 'Degraded [REDUCED EFFICIENCY]',
+    'Not OK': 'Not OK [ACTION REQUIRED]',
+    'Standby': 'Standby [NO PLANNED PRODUCTION]',
   };
 
   if (machines.length === 0) {
@@ -75,7 +75,7 @@ export const formatWhatsAppShiftSummary = ({
       if (catMachines.length > 0) {
         lines.push(`${catIndex}. *${catName}*`);
         catMachines.forEach((m) => {
-          const statusText = statusEmoji[m.status] || `${m.status} ✅`;
+          const statusText = statusEmoji[m.status] || `${m.status} [PASSED]`;
           lines.push(`• *${m.machineName}*: ${statusText}`);
           if (m.note && m.note.trim()) {
             lines.push(`  _Note:_ ${m.note.trim()}`);
@@ -105,9 +105,9 @@ export const formatWhatsAppShiftSummary = ({
   } else {
     workLogs.forEach((log, idx) => {
       const riskMeta = {
-        Low: '🟢 Low Recurrence Risk',
-        Medium: '🟡 Medium Recurrence Risk',
-        High: '🔴 High Recurrence Risk',
+        Low: 'Low Recurrence Risk',
+        Medium: 'Medium Recurrence Risk',
+        High: 'High Recurrence Risk',
       }[log.recurrenceRisk] || `${log.recurrenceRisk || 'Low'} Risk`;
 
       lines.push(`${idx + 1}. *${log.location}*`);

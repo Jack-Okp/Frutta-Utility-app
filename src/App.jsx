@@ -11,6 +11,7 @@ import Export from './pages/Export';
 import TemplateBuilder from './pages/TemplateBuilder';
 import ChecklistEditor from './pages/ChecklistEditor';
 import WorkLogHistory from './pages/WorkLogHistory';
+import Notifications from './pages/Notifications';
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
       <Route path="/machine/:id/templates" element={<TemplateBuilder />} />
       <Route path="/machine/:id/edit-checklist" element={<ChecklistEditor />} />
       <Route path="/work-logs" element={<WorkLogHistory />} />
+      <Route path="/notifications" element={<Notifications />} />
       <Route path="/export" element={<Export />} />
     </Routes>
   );

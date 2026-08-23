@@ -162,7 +162,7 @@ const WorkLogModal = ({ isOpen, onClose, onSuccess, initialLocation = '' }) => {
                     transition: 'all 0.15s',
                   }}
                 >
-                  {s === 'Morning' ? '☀️ Morning (7 AM - 7 PM)' : '🌙 Night (7 PM - 7 AM)'}
+                  {s === 'Morning' ? 'Morning (7 AM - 7 PM)' : 'Night (7 PM - 7 AM)'}
                 </button>
               ))}
             </div>
@@ -245,9 +245,9 @@ const WorkLogModal = ({ isOpen, onClose, onSuccess, initialLocation = '' }) => {
             </label>
             <div style={{ display: 'flex', gap: '8px' }}>
               {[
-                { level: 'Low', label: '🟢 Low Risk', bg: '#dcfce7', color: '#16a34a', border: '#86efac' },
-                { level: 'Medium', label: '🟡 Medium Risk', bg: '#fef3c7', color: '#d97706', border: '#fde68a' },
-                { level: 'High', label: '🔴 High Risk', bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' },
+                { level: 'Low', label: 'Low Risk', bg: '#dcfce7', color: '#16a34a', border: '#86efac' },
+                { level: 'Medium', label: 'Medium Risk', bg: '#fef3c7', color: '#d97706', border: '#fde68a' },
+                { level: 'High', label: 'High Risk', bg: '#fee2e2', color: '#dc2626', border: '#fca5a5' },
               ].map((r) => (
                 <button
                   type="button"

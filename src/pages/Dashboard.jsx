@@ -4,6 +4,7 @@ import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs } f
 import { getUser, getAllCheckSessions } from '../services/storage';
 import WorkLogModal from '../components/WorkLogModal';
 import ShiftSummaryModal from '../components/ShiftSummaryModal';
+import { buildAllNotifications, getAttendedNotifs, markNotifAttended } from './Notifications';
 
 
 // ─── Health logic ────────────────────────────────────────────────────────────
@@ -98,6 +99,8 @@ const Dashboard = () => {
   const [workLogs, setWorkLogs] = useState([]);
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false);
   const [isShiftSummaryModalOpen, setIsShiftSummaryModalOpen] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
+  const [attendedNotifIds, setAttendedNotifIds] = useState([]);
 
   const loadAll = async (userObj) => {
     setSyncing(true);
@@ -126,8 +129,10 @@ const Dashboard = () => {
   // Dynamic filter tabs — only show types that actually exist in machines list
   const machineTypes = ['All', ...Array.from(new Set(machines.map((m) => m.machineType).filter(Boolean)))];
 
-  const notifications = buildNotifications(machines, sessions);
-  const notifCount = notifications.length;
+  const allNotifs = buildAllNotifications(machines, sessions, workLogs);
+  const attendedNotifs = getAttendedNotifs();
+  const activeNotifications = allNotifs.filter((n) => !attendedNotifs.some((a) => a.id === n.id));
+  const notifCount = activeNotifications.length;
 
   // Filtered & searched machines
   const filteredMachines = machines.filter((m) => {
@@ -170,78 +175,23 @@ const Dashboard = () => {
           style={{ height: '38px', objectFit: 'contain' }}
         />
 
-        {/* Right: Work Log + Shift Summary + Add Machine + Bell */}
+        {/* Right: Bell Icon only (Navigates to /notifications) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
-            onClick={() => setIsShiftSummaryModalOpen(true)}
-            style={{
-              background: '#eff6ff',
-              color: '#2563eb',
-              border: '1px solid #bfdbfe',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            📲 Summary
-          </button>
-
-          <button
-            onClick={() => setIsWorkLogModalOpen(true)}
-            style={{
-              background: '#ecfdf5',
-              color: '#059669',
-              border: '1px solid #a7f3d0',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              fontSize: '0.8rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            + Work Log
-          </button>
-
-          <button
-            onClick={() => navigate('/add-machine')}
-            style={{
-              background: 'var(--color-primary)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              fontSize: '0.82rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            + Add
-          </button>
-
-          {/* Bell icon with badge */}
-          <button
             id="notif-bell-btn"
-            onClick={() => setShowNotifications((v) => !v)}
+            onClick={() => navigate('/notifications')}
             style={{
               background: 'none',
               border: 'none',
               cursor: 'pointer',
               position: 'relative',
-              padding: '4px 6px',
+              padding: '6px',
               lineHeight: 1,
             }}
             aria-label="Notifications"
           >
             {/* SVG bell */}
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={notifCount > 0 ? '#1b5e20' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={notifCount > 0 ? '#1b5e20' : '#9ca3af'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
               <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
@@ -249,8 +199,8 @@ const Dashboard = () => {
               <span
                 style={{
                   position: 'absolute',
-                  top: '0px',
-                  right: '0px',
+                  top: '2px',
+                  right: '2px',
                   width: '16px',
                   height: '16px',
                   borderRadius: '50%',
@@ -336,38 +286,21 @@ const Dashboard = () => {
                     Shift Work Logs ({activeShiftLogs.length} Active)
                   </span>
                 </div>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                  <button
-                    onClick={() => setIsShiftSummaryModalOpen(true)}
-                    style={{
-                      background: '#2563eb',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '4px 10px',
-                      fontSize: '0.72rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    📲 Shift Summary
-                  </button>
-                  <button
-                    onClick={() => navigate('/work-logs')}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: 'var(--color-primary)',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                      padding: 0,
-                    }}
-                  >
-                    View All &rarr;
-                  </button>
-                </div>
+                <button
+                  onClick={() => navigate('/work-logs')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--color-primary)',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  View All &rarr;
+                </button>
               </div>
 
               {activeShiftLogs.length === 0 ? (
@@ -424,6 +357,91 @@ const Dashboard = () => {
                   })}
                 </div>
               )}
+            </div>
+          );
+        })()}
+
+        {/* ── Top 2 Recent Notifications Section ── */}
+        {(() => {
+          const allNotifs = buildAllNotifications(machines, sessions, workLogs);
+          const attended = getAttendedNotifs();
+          const activeNotifs = allNotifs.filter((n) => !attended.some((a) => a.id === n.id));
+          const top2 = activeNotifs.slice(0, 2);
+
+          if (top2.length === 0) return null;
+
+          return (
+            <div
+              className="card"
+              style={{
+                marginBottom: '16px',
+                padding: '14px 16px',
+                background: '#fff',
+                border: '1.5px solid #fef3c7',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Recent System Alerts ({activeNotifs.length})
+                </span>
+                <button
+                  onClick={() => navigate('/notifications')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--color-primary)',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  View All Notifications &rarr;
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {top2.map((n) => (
+                  <div
+                    key={n.id}
+                    style={{
+                      background: n.type === 'danger' ? '#fef2f2' : '#fffbeb',
+                      borderLeft: n.type === 'danger' ? '3px solid #ef4444' : '3px solid #f59e0b',
+                      borderRadius: '8px',
+                      padding: '8px 10px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: '0.78rem',
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 800, color: 'var(--color-text)' }}>{n.title}</div>
+                      <div style={{ color: '#6b7280', fontSize: '0.72rem' }}>{n.message}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        markNotifAttended(n.id);
+                        setAttendedNotifIds((prev) => [...prev, n.id]);
+                      }}
+                      style={{
+                        background: '#fff',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        padding: '3px 8px',
+                        fontSize: '0.68rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        color: '#059669',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      Attend
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })()}
@@ -751,6 +769,128 @@ const Dashboard = () => {
         isOpen={isShiftSummaryModalOpen}
         onClose={() => setIsShiftSummaryModalOpen(false)}
       />
+
+      {/* ── Expandable Floating Action Button (FAB) at Bottom Right ── */}
+      {isFabOpen && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 90 }}
+          onClick={() => setIsFabOpen(false)}
+        />
+      )}
+
+      <div
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          zIndex: 99,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-end',
+          gap: '10px',
+        }}
+      >
+        {/* Expanded FAB Menu Items */}
+        {isFabOpen && (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: '10px',
+              animation: 'slideUpFast 0.18s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            }}
+          >
+            <button
+              onClick={() => { setIsFabOpen(false); setIsWorkLogModalOpen(true); }}
+              style={{
+                background: '#ecfdf5',
+                color: '#059669',
+                border: '1.5px solid #a7f3d0',
+                borderRadius: '99px',
+                padding: '10px 18px',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              + Work Log
+            </button>
+
+            <button
+              onClick={() => { setIsFabOpen(false); setIsShiftSummaryModalOpen(true); }}
+              style={{
+                background: '#eff6ff',
+                color: '#2563eb',
+                border: '1.5px solid #bfdbfe',
+                borderRadius: '99px',
+                padding: '10px 18px',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/>
+              </svg>
+              Shift Summary
+            </button>
+
+            <button
+              onClick={() => { setIsFabOpen(false); navigate('/add-machine'); }}
+              style={{
+                background: 'var(--color-primary)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '99px',
+                padding: '10px 18px',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: '0 6px 20px rgba(0,0,0,0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              + Add Machine
+            </button>
+          </div>
+        )}
+
+        {/* Main Trigger FAB (+) */}
+        <button
+          onClick={() => setIsFabOpen((v) => !v)}
+          style={{
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'var(--color-primary)',
+            color: '#fff',
+            border: 'none',
+            boxShadow: '0 8px 24px rgba(46, 125, 50, 0.45)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+            transform: isFabOpen ? 'rotate(45deg)' : 'rotate(0deg)',
+          }}
+          aria-label="Actions"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+        </button>
+      </div>
 
     </div>
   );

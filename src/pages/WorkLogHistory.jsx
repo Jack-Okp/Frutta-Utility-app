@@ -6,9 +6,9 @@ import WorkLogModal from '../components/WorkLogModal';
 
 const RiskBadge = ({ risk }) => {
   const meta = {
-    Low: { bg: '#dcfce7', color: '#16a34a', label: '🟢 Low Risk' },
-    Medium: { bg: '#fef3c7', color: '#d97706', label: '🟡 Medium Risk' },
-    High: { bg: '#fee2e2', color: '#dc2626', label: '🔴 High Risk' },
+    Low: { bg: '#dcfce7', color: '#16a34a', label: 'Low Risk' },
+    Medium: { bg: '#fef3c7', color: '#d97706', label: 'Medium Risk' },
+    High: { bg: '#fee2e2', color: '#dc2626', label: 'High Risk' },
   }[risk] || { bg: '#f3f4f6', color: '#6b7280', label: risk || '—' };
 
   return (
@@ -80,21 +80,7 @@ const WorkLogHistory = () => {
           &larr;
         </button>
         <h1 style={{ fontSize: '1.125rem' }}>Digital Work Logs</h1>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          style={{
-            background: 'var(--color-primary)',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '6px 12px',
-            fontSize: '0.8rem',
-            fontWeight: 800,
-            cursor: 'pointer',
-          }}
-        >
-          + Log
-        </button>
+        <div style={{ width: '30px' }} />
       </nav>
 
       <div className="container" style={{ paddingTop: '16px' }}>
@@ -357,6 +343,35 @@ const WorkLogHistory = () => {
         onClose={() => setIsModalOpen(false)}
         onSuccess={() => loadData()}
       />
+
+      {/* Bottom Right Floating Action Button */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        style={{
+          position: 'fixed',
+          bottom: '24px',
+          right: '24px',
+          borderRadius: '99px',
+          background: 'var(--color-primary)',
+          color: '#fff',
+          border: 'none',
+          padding: '14px 20px',
+          fontWeight: 800,
+          fontSize: '0.88rem',
+          boxShadow: '0 8px 24px rgba(46, 125, 50, 0.4)',
+          cursor: 'pointer',
+          zIndex: 90,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)',
+        }}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New Work Log
+      </button>
 
     </div>
   );

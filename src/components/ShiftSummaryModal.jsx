@@ -122,7 +122,7 @@ const ShiftSummaryModal = ({ isOpen, onClose }) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: 'var(--color-primary)' }}>
-              📲 Shift Summary Generator
+              Shift Summary Generator
             </h2>
             <p style={{ margin: '2px 0 0', fontSize: '0.78rem', color: 'var(--color-text-light)' }}>
               Compile closing report & send directly to WhatsApp
@@ -153,7 +153,7 @@ const ShiftSummaryModal = ({ isOpen, onClose }) => {
               cursor: 'pointer',
             }}
           >
-            ☀️ Morning Shift (7 AM - 7 PM)
+            Morning Shift (7 AM - 7 PM)
           </button>
           <button
             type="button"
@@ -170,7 +170,7 @@ const ShiftSummaryModal = ({ isOpen, onClose }) => {
               cursor: 'pointer',
             }}
           >
-            🌙 Night Shift (7 PM - 7 AM)
+            Night Shift (7 PM - 7 AM)
           </button>
         </div>
 
@@ -206,10 +206,10 @@ const ShiftSummaryModal = ({ isOpen, onClose }) => {
                     {/* Status Pills */}
                     <div style={{ display: 'flex', gap: '4px' }}>
                       {[
-                        { key: 'OK', label: '✅ OK', bg: '#dcfce7', color: '#16a34a' },
-                        { key: 'Degraded', label: '🟡 Degraded', bg: '#fef3c7', color: '#d97706' },
-                        { key: 'Not OK', label: '❌ Not OK', bg: '#fee2e2', color: '#dc2626' },
-                        { key: 'Standby', label: '⚪ Standby', bg: '#f3f4f6', color: '#4b5563' },
+                        { key: 'OK', label: 'OK', bg: '#dcfce7', color: '#16a34a' },
+                        { key: 'Degraded', label: 'Degraded', bg: '#fef3c7', color: '#d97706' },
+                        { key: 'Not OK', label: 'Not OK', bg: '#fee2e2', color: '#dc2626' },
+                        { key: 'Standby', label: 'Standby', bg: '#f3f4f6', color: '#4b5563' },
                       ].map((st) => (
                         <button
                           key={st.key}
