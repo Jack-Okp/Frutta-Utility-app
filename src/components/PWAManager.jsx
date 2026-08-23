@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { flushOfflineQueue, syncSharedDatabase } from '../services/googleSheets';
 
 // ─── Install Banner ───────────────────────────────────────────────────────────
 const InstallBanner = ({ onInstall, onDismiss }) => (
@@ -183,6 +184,17 @@ const PWAManager = () => {
   });
 
   // Capture the browser's native install prompt
+  useEffect(() => {
+    const handleOnline = () => {
+      console.log('[Network] Connection restored — auto-flushing queue & syncing DB...');
+      flushOfflineQueue();
+      syncSharedDatabase();
+    };
+
+    window.addEventListener('online', handleOnline);
+    return () => window.removeEventListener('online', handleOnline);
+  }, []);
+
   useEffect(() => {
     const dismissed = sessionStorage.getItem('pwa_install_dismissed');
     if (dismissed) return;

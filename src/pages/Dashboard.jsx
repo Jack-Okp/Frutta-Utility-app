@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs } from '../services/googleSheets';
 import { getUser, getAllCheckSessions } from '../services/storage';
 import WorkLogModal from '../components/WorkLogModal';
+import ShiftSummaryModal from '../components/ShiftSummaryModal';
 
 
 // ─── Health logic ────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ const Dashboard = () => {
   const [syncing, setSyncing] = useState(false);
   const [workLogs, setWorkLogs] = useState([]);
   const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false);
+  const [isShiftSummaryModalOpen, setIsShiftSummaryModalOpen] = useState(false);
 
   const loadAll = async (userObj) => {
     setSyncing(true);
@@ -168,8 +170,27 @@ const Dashboard = () => {
           style={{ height: '38px', objectFit: 'contain' }}
         />
 
-        {/* Right: Work Log + Add Machine + Bell */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {/* Right: Work Log + Shift Summary + Add Machine + Bell */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            onClick={() => setIsShiftSummaryModalOpen(true)}
+            style={{
+              background: '#eff6ff',
+              color: '#2563eb',
+              border: '1px solid #bfdbfe',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              fontSize: '0.8rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            📲 Summary
+          </button>
+
           <button
             onClick={() => setIsWorkLogModalOpen(true)}
             style={{
@@ -177,8 +198,8 @@ const Dashboard = () => {
               color: '#059669',
               border: '1px solid #a7f3d0',
               borderRadius: '8px',
-              padding: '6px 12px',
-              fontSize: '0.82rem',
+              padding: '6px 10px',
+              fontSize: '0.8rem',
               fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
@@ -315,21 +336,38 @@ const Dashboard = () => {
                     Shift Work Logs ({activeShiftLogs.length} Active)
                   </span>
                 </div>
-                <button
-                  onClick={() => navigate('/work-logs')}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-primary)',
-                    fontSize: '0.78rem',
-                    fontWeight: 800,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    padding: 0,
-                  }}
-                >
-                  View All Past Work Logs &rarr;
-                </button>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    onClick={() => setIsShiftSummaryModalOpen(true)}
+                    style={{
+                      background: '#2563eb',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    📲 Shift Summary
+                  </button>
+                  <button
+                    onClick={() => navigate('/work-logs')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--color-primary)',
+                      fontSize: '0.78rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      textDecoration: 'underline',
+                      padding: 0,
+                    }}
+                  >
+                    View All &rarr;
+                  </button>
+                </div>
               </div>
 
               {activeShiftLogs.length === 0 ? (
@@ -706,6 +744,12 @@ const Dashboard = () => {
         isOpen={isWorkLogModalOpen}
         onClose={() => setIsWorkLogModalOpen(false)}
         onSuccess={() => loadAll(user)}
+      />
+
+      {/* Shift Summary WhatsApp Modal */}
+      <ShiftSummaryModal
+        isOpen={isShiftSummaryModalOpen}
+        onClose={() => setIsShiftSummaryModalOpen(false)}
       />
 
     </div>

@@ -150,9 +150,9 @@ export const saveLog = async (log, period) => {
 // ─── Shared Database Checklist Sessions Syncing ────────────────────────────────
 export const syncCheckSession = async (session) => {
   if (!isUserSync()) return;
-  const success = await postToGoogle('CheckSessions', 'insert', session);
+  const success = await postToGoogle('CheckSessions', 'update', session, 'id', session.id);
   if (!success) {
-    queueOfflineAction('CheckSessions', 'insert', session);
+    queueOfflineAction('CheckSessions', 'update', session);
   }
 };
 
@@ -197,9 +197,9 @@ export const fetchWorkLogs = async () => {
 export const saveWorkLog = async (workLog) => {
   saveWorkLogLocal(workLog);
   if (isUserSync()) {
-    const success = await postToGoogle('WorkLogs', 'insert', workLog);
+    const success = await postToGoogle('WorkLogs', 'update', workLog, 'id', workLog.id);
     if (!success) {
-      queueOfflineAction('WorkLogs', 'insert', workLog);
+      queueOfflineAction('WorkLogs', 'update', workLog);
     }
   }
 };
@@ -211,7 +211,11 @@ export const flushOfflineQueue = async () => {
   
   for (const item of queue) {
     let success = false;
-    if (item.action === 'update' && item.sheetName === 'Machines') {
+    if (item.sheetName === 'CheckSessions') {
+      success = await postToGoogle(item.sheetName, 'update', item.dataObj, 'id', item.dataObj.id);
+    } else if (item.sheetName === 'WorkLogs') {
+      success = await postToGoogle(item.sheetName, 'update', item.dataObj, 'id', item.dataObj.id);
+    } else if (item.action === 'update' && item.sheetName === 'Machines') {
       success = await postToGoogle(item.sheetName, 'update', item.dataObj, 'machineId', item.dataObj.machineId);
     } else if (item.action === 'update' && item.sheetName === 'Templates') {
       success = await postToGoogle(item.sheetName, 'update', item.dataObj, 'templateId', item.dataObj.templateId);
