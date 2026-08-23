@@ -13,9 +13,7 @@ const Welcome = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    site: '',
     department: '',
-    shift: '',
     syncCode: ''
   });
 
@@ -55,7 +53,7 @@ const Welcome = () => {
       setSyncStatus({
         isSync: false,
         matchedName: null,
-        error: 'Name must match one of the 11 registered engineers (Felix, Vinatus, etc.)'
+        error: 'Name must match one of the 11 registered engineers'
       });
       return;
     }
@@ -78,9 +76,7 @@ const Welcome = () => {
       const userData = {
         name: formData.name,
         email: formData.email,
-        site: formData.site,
         department: formData.department,
-        shift: formData.shift,
         isSync: syncStatus.isSync,
         engineerName: syncStatus.matchedName,
         lastActiveDate: new Date().toISOString()
@@ -106,28 +102,15 @@ const Welcome = () => {
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Full Name</label>
-            <input type="text" name="name" required value={formData.name} onChange={handleChange} placeholder="e.g. Felix, Vinatus..." />
+            <input type="text" name="name" required value={formData.name} onChange={handleChange} />
           </div>
           <div className="form-group">
             <label>Email</label>
-            <input type="email" name="email" required value={formData.email} onChange={handleChange} placeholder="john@example.com" />
-          </div>
-          <div className="form-group">
-            <label>Site</label>
-            <input type="text" name="site" required value={formData.site} onChange={handleChange} placeholder="Main Plant" />
+            <input type="email" name="email" required value={formData.email} onChange={handleChange} />
           </div>
           <div className="form-group">
             <label>Department</label>
-            <input type="text" name="department" required value={formData.department} onChange={handleChange} placeholder="Engineering" />
-          </div>
-          <div className="form-group">
-            <label>Shift</label>
-            <select name="shift" required value={formData.shift} onChange={handleChange}>
-              <option value="">Select Shift</option>
-              <option value="Morning">Morning</option>
-              <option value="Afternoon">Afternoon</option>
-              <option value="Night">Night</option>
-            </select>
+            <input type="text" name="department" required value={formData.department} onChange={handleChange} />
           </div>
 
           <div className="form-group" style={{ marginTop: '16px', borderTop: '1px dashed var(--color-border)', paddingTop: '16px' }}>
@@ -140,7 +123,6 @@ const Welcome = () => {
               name="syncCode"
               value={formData.syncCode}
               onChange={handleChange}
-              placeholder="e.g. FRUTTA-SYNC-2026"
               style={{
                 border: formData.syncCode 
                   ? (syncStatus.isSync ? '1.5px solid #10b981' : '1.5px solid #f87171')
@@ -186,4 +168,5 @@ const Welcome = () => {
 };
 
 export default Welcome;
+
 

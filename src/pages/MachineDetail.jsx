@@ -6,14 +6,14 @@ import { deleteMachineLocal } from '../services/storage';
 import { FREQUENCY_META } from '../data/coolingTunnelChecklist';
 
 // ─── Machine type → stock image ──────────────────────────────────────────────
-const getMachineImage = (type = '') => {
-  const t = type.toLowerCase();
+const getMachineImage = (type = '', name = '') => {
+  const t = (String(type) + ' ' + String(name)).toLowerCase();
   if (t.includes('boiler')) return '/img-boiler.jpg';
-  if (t.includes('compressor')) return '/img-compressor.jpg';
+  if (t.includes('compressor') || t.includes('boge')) return '/img-boge-compressor.jpg';
   if (t.includes('generator')) return '/img-generator.jpg';
   if (t.includes('chiller')) return '/img-chiller.jpg';
   if (t.includes('cooling') || t.includes('tunnel')) return '/img-cooling-tunnel.jpg';
-  return '/img-boiler.jpg'; // generic fallback
+  return '/img-general-machine.jpg'; // user general factory image for any other machine (e.g. Nimco)
 };
 
 // ─── Health logic (same as Dashboard) ────────────────────────────────────────
@@ -177,7 +177,7 @@ const MachineDetail = () => {
 
   const health = getMachineHealth(sessions);
   const isHealthy = health === 'healthy';
-  const machineImage = getMachineImage(machine.machineType);
+  const machineImage = getMachineImage(machine.machineType, machine.machineName);
 
   // ── Decommission handler ──────────────────────────────────────────────────
   const modelRequired = !!machine.model && machine.model !== '—' && machine.model !== '';
