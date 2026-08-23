@@ -1,8 +1,9 @@
-// src/services/googleSheets.js
 import { 
   getMachinesLocal, saveMachineLocal, updateMachineLocal,
   getTemplatesLocal, saveTemplateLocal,
-  getLogsLocal, saveLogLocal, getUser 
+  getLogsLocal, saveLogLocal, getUser,
+  getWorkLogsLocal, saveWorkLogLocal,
+  queueOfflineAction, getOfflineQueue, clearOfflineQueueItem
 } from './storage';
 
 // Get URL from Vite environment variables
@@ -54,58 +55,175 @@ const postToGoogle = async (sheetName, action, dataObj, idField = null, idValue 
   }
 };
 
+export const isUserSync = () => {
+  const user = getUser();
+  return !!(user && user.isSync);
+};
+
 export const syncUser = async (user) => {
-  if (!API_URL) return; // local only
-  // Attempt to update, if fails, insert (simplified logic)
+  if (!API_URL || !user.isSync) return;
   const success = await postToGoogle('Users', 'insert', user);
+  if (!success) {
+    queueOfflineAction('Users', 'insert', user);
+  }
 };
 
 export const fetchMachines = async () => {
+  if (!isUserSync()) return getMachinesLocal();
   const data = await fetchFromGoogle('Machines');
-  return data || getMachinesLocal();
+  if (data && Array.isArray(data)) {
+    localStorage.setItem('frutta_machines', JSON.stringify(data));
+    return data;
+  }
+  return getMachinesLocal();
 };
 
 export const saveMachine = async (machine) => {
   saveMachineLocal(machine);
-  await postToGoogle('Machines', 'insert', machine);
+  if (isUserSync()) {
+    const success = await postToGoogle('Machines', 'insert', machine);
+    if (!success) {
+      queueOfflineAction('Machines', 'insert', machine);
+    }
+  }
 };
 
 export const updateMachine = async (machine) => {
   updateMachineLocal(machine);
-  await postToGoogle('Machines', 'update', machine, 'machineId', machine.machineId);
+  if (isUserSync()) {
+    const success = await postToGoogle('Machines', 'update', machine, 'machineId', machine.machineId);
+    if (!success) {
+      queueOfflineAction('Machines', 'update', machine);
+    }
+  }
 };
 
 export const fetchTemplates = async () => {
+  if (!isUserSync()) return getTemplatesLocal();
   const data = await fetchFromGoogle('Templates');
-  return data || getTemplatesLocal();
+  if (data && Array.isArray(data)) {
+    localStorage.setItem('frutta_templates', JSON.stringify(data));
+    return data;
+  }
+  return getTemplatesLocal();
 };
 
 export const saveTemplate = async (template) => {
   saveTemplateLocal(template);
-  // We should either insert or update. For MVP, we insert or replace via local
-  const templates = await fetchTemplates();
-  const exists = templates.find(t => t.templateId === template.templateId);
-  if (exists) {
-    await postToGoogle('Templates', 'update', template, 'templateId', template.templateId);
-  } else {
-    await postToGoogle('Templates', 'insert', template);
+  if (isUserSync()) {
+    const templates = await fetchTemplates();
+    const exists = templates.find(t => t.templateId === template.templateId);
+    let success = false;
+    if (exists) {
+      success = await postToGoogle('Templates', 'update', template, 'templateId', template.templateId);
+    } else {
+      success = await postToGoogle('Templates', 'insert', template);
+    }
+    if (!success) {
+      queueOfflineAction('Templates', exists ? 'update' : 'insert', template);
+    }
   }
 };
 
 export const fetchLogs = async (machineId) => {
-  // Combine logs from all sheets for simplicity, or just read local
+  if (!isUserSync()) return getLogsLocal().filter(l => l.machineId === machineId);
   const data = await fetchFromGoogle('DailyLogs', { machineId });
-  // For MVP, relying on local for unified history is faster if offline
   return data || getLogsLocal().filter(l => l.machineId === machineId);
 };
 
 export const saveLog = async (log, period) => {
   saveLogLocal(log);
-  const sheetMap = {
-    'daily': 'DailyLogs',
-    'weekly': 'WeeklyLogs',
-    'monthly': 'MonthlyLogs'
-  };
-  const sheetName = sheetMap[period] || 'DailyLogs';
-  await postToGoogle(sheetName, 'insert', log);
+  if (isUserSync()) {
+    const sheetMap = {
+      'daily': 'DailyLogs',
+      'weekly': 'WeeklyLogs',
+      'monthly': 'MonthlyLogs'
+    };
+    const sheetName = sheetMap[period] || 'DailyLogs';
+    const success = await postToGoogle(sheetName, 'insert', log);
+    if (!success) {
+      queueOfflineAction(sheetName, 'insert', log);
+    }
+  }
+};
+
+// ─── Shared Database Checklist Sessions Syncing ────────────────────────────────
+export const syncCheckSession = async (session) => {
+  if (!isUserSync()) return;
+  const success = await postToGoogle('CheckSessions', 'insert', session);
+  if (!success) {
+    queueOfflineAction('CheckSessions', 'insert', session);
+  }
+};
+
+export const syncSharedDatabase = async () => {
+  if (!isUserSync()) return;
+  
+  // 1. Fetch and cache machines
+  const machines = await fetchFromGoogle('Machines');
+  if (machines && Array.isArray(machines)) {
+    localStorage.setItem('frutta_machines', JSON.stringify(machines));
+  }
+  
+  // 2. Fetch and cache check sessions
+  const sessions = await fetchFromGoogle('CheckSessions');
+  if (sessions && Array.isArray(sessions)) {
+    localStorage.setItem('ct_check_sessions', JSON.stringify(sessions));
+  }
+
+  // 3. Fetch and cache templates
+  const templates = await fetchFromGoogle('Templates');
+  if (templates && Array.isArray(templates)) {
+    localStorage.setItem('frutta_templates', JSON.stringify(templates));
+  }
+
+  // 4. Fetch and cache Digital Work Logs
+  const workLogs = await fetchFromGoogle('WorkLogs');
+  if (workLogs && Array.isArray(workLogs)) {
+    localStorage.setItem('frutta_work_logs', JSON.stringify(workLogs));
+  }
+};
+
+export const fetchWorkLogs = async () => {
+  if (!isUserSync()) return getWorkLogsLocal();
+  const data = await fetchFromGoogle('WorkLogs');
+  if (data && Array.isArray(data)) {
+    localStorage.setItem('frutta_work_logs', JSON.stringify(data));
+    return data;
+  }
+  return getWorkLogsLocal();
+};
+
+export const saveWorkLog = async (workLog) => {
+  saveWorkLogLocal(workLog);
+  if (isUserSync()) {
+    const success = await postToGoogle('WorkLogs', 'insert', workLog);
+    if (!success) {
+      queueOfflineAction('WorkLogs', 'insert', workLog);
+    }
+  }
+};
+
+export const flushOfflineQueue = async () => {
+  if (!isUserSync()) return;
+  const queue = getOfflineQueue();
+  if (queue.length === 0) return;
+  
+  for (const item of queue) {
+    let success = false;
+    if (item.action === 'update' && item.sheetName === 'Machines') {
+      success = await postToGoogle(item.sheetName, 'update', item.dataObj, 'machineId', item.dataObj.machineId);
+    } else if (item.action === 'update' && item.sheetName === 'Templates') {
+      success = await postToGoogle(item.sheetName, 'update', item.dataObj, 'templateId', item.dataObj.templateId);
+    } else {
+      success = await postToGoogle(item.sheetName, item.action, item.dataObj);
+    }
+    
+    if (success) {
+      clearOfflineQueueItem(item.id);
+    } else {
+      // Keep queued and stop processing (offline/error)
+      break;
+    }
+  }
 };

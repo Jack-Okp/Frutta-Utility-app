@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FREQUENCY_META, getDayOfWeek } from '../data/coolingTunnelChecklist';
-import { fetchMachines } from '../services/googleSheets';
+import { fetchMachines, syncCheckSession } from '../services/googleSheets';
 import { getDefaultChecklist } from '../data/defaultChecklists';
 import { saveCheckSession, getAllCheckSessions, getUser } from '../services/storage';
 
@@ -112,10 +112,13 @@ const ChecklistEntry = () => {
       submittedAt: new Date().toISOString(),
     };
     saveCheckSession(session);
-    setTimeout(() => {
+    
+    const pushSync = async () => {
+      await syncCheckSession(session);
       setSaving(false);
       navigate(`/machine/${id}`);
-    }, 600);
+    };
+    pushSync();
   };
 
   // Group items by part for visual grouping
@@ -300,26 +303,6 @@ const ChecklistEntry = () => {
                         )}
                       </div>
 
-                      {/* Symbol badge */}
-                      <div
-                        style={{
-                          width: '28px',
-                          height: '28px',
-                          borderRadius: '6px',
-                          background: meta.bg,
-                          color: meta.color,
-                          fontSize: '0.9rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          fontWeight: 700,
-                          border: `1px solid ${meta.color}44`,
-                        }}
-                      >
-                        {item.symbol}
-                      </div>
-
                       {/* Note toggle */}
                       <button
                         onClick={() => toggleRemark(item.id)}
@@ -328,14 +311,20 @@ const ChecklistEntry = () => {
                           border: 'none',
                           cursor: 'pointer',
                           padding: '4px',
-                          fontSize: '1rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           color: state.remark ? meta.color : '#9ca3af',
                           flexShrink: 0,
+                          transition: 'color 0.15s',
                         }}
                         aria-label="Add remark"
                         title="Add remark"
                       >
-                        📝
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
                       </button>
                     </div>
 

@@ -4,6 +4,7 @@ const MACHINES_KEY = 'frutta_machines';
 const LOGS_KEY = 'frutta_logs';
 const TEMPLATES_KEY = 'frutta_templates';
 const CT_SESSIONS_KEY = 'ct_check_sessions'; // Cooling Tunnel checklist sessions
+const WORK_LOGS_KEY = 'frutta_work_logs'; // Digital Work Logs
 
 export const saveUser = (userData) => {
   localStorage.setItem(USER_KEY, JSON.stringify(userData));
@@ -138,4 +139,50 @@ export const deleteCheckSession = (sessionId) => {
   const sessions = getAllCheckSessions().filter((s) => s.id !== sessionId);
   localStorage.setItem(CT_SESSIONS_KEY, JSON.stringify(sessions));
 };
+
+// ─── Offline Sync Queue ──────────────────────────────────────────────────────
+const SYNC_QUEUE_KEY = 'frutta_sync_queue';
+
+
+export const getOfflineQueue = () => {
+  const data = localStorage.getItem(SYNC_QUEUE_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+export const queueOfflineAction = (sheetName, action, dataObj) => {
+  const queue = getOfflineQueue();
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  queue.push({ id, sheetName, action, dataObj });
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+};
+
+export const clearOfflineQueueItem = (id) => {
+  const queue = getOfflineQueue().filter((item) => item.id !== id);
+  localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(queue));
+};
+
+// ─── Digital Work Logs ───────────────────────────────────────────────────────
+export const getWorkLogsLocal = () => {
+  const data = localStorage.getItem(WORK_LOGS_KEY);
+  return data ? JSON.parse(data) : [];
+};
+
+export const saveWorkLogLocal = (workLog) => {
+  const logs = getWorkLogsLocal();
+  // Check if exists (update) or push
+  const idx = logs.findIndex((l) => l.id === workLog.id);
+  if (idx > -1) {
+    logs[idx] = workLog;
+  } else {
+    logs.unshift(workLog);
+  }
+  localStorage.setItem(WORK_LOGS_KEY, JSON.stringify(logs));
+};
+
+export const deleteWorkLogLocal = (logId) => {
+  const logs = getWorkLogsLocal().filter((l) => l.id !== logId);
+  localStorage.setItem(WORK_LOGS_KEY, JSON.stringify(logs));
+};
+
+
 

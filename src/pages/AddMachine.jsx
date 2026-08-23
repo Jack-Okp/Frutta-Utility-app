@@ -166,14 +166,9 @@ const AddMachine = () => {
     machineType: 'Boiler',
     customTypeName: '',
     machineName: '',
-    tagNumber: '',
     location: '',
-    model: '',
-    serialNumber: '',
-    installationDate: '',
     startingRunningHours: 0,
     maintenanceIntervalDays: 30,
-    maintenanceIntervalHours: 500,
   });
 
   // Per-machine checklist items
@@ -215,20 +210,32 @@ const AddMachine = () => {
     const displayType =
       formData.machineType === 'Custom' ? formData.customTypeName || 'Custom' : formData.machineType;
 
+    const generatedTag = formData.machineName.toUpperCase().replace(/[^A-Z0-9]/g, '-').slice(0, 12);
+    const tagNumber = generatedTag ? `${generatedTag}-${Math.floor(100 + Math.random() * 900)}` : `MC-${Math.floor(1000 + Math.random() * 9000)}`;
+
     const newMachine = {
-      ...formData,
       machineType: displayType,
+      machineName: formData.machineName,
+      location: formData.location,
+      startingRunningHours: Number(formData.startingRunningHours),
+      maintenanceIntervalDays: Number(formData.maintenanceIntervalDays),
+      tagNumber,
+      model: '',
+      serialNumber: '',
+      installationDate: new Date().toISOString().slice(0, 10),
+      maintenanceIntervalHours: 500,
       machineId,
       currentRunningHours: Number(formData.startingRunningHours),
       lastMaintenanceDate: '',
       nextMaintenanceDate: '',
       healthStatus: 'Green',
-      checklistItems,       // ← stored per machine
+      checklistItems,
     };
 
     await saveMachine(newMachine);
     setTimeout(() => navigate('/dashboard'), 800);
   };
+
 
   // ─── Filtered checklist items for each tab ────────────────────────────────
   const dailyItems = checklistItems.filter((i) => i.frequency === 'daily');
@@ -313,30 +320,8 @@ const AddMachine = () => {
               </div>
 
               <div className="form-group">
-                <label>Tag Number</label>
-                <input type="text" name="tagNumber" value={formData.tagNumber} onChange={handleChange} required placeholder="e.g. BLR-01" />
-                <div className="helper-text">Must be unique per site.</div>
-              </div>
-
-              <div className="form-group">
                 <label>Location</label>
                 <input type="text" name="location" value={formData.location} onChange={handleChange} required placeholder="e.g. Utility Room 1" />
-              </div>
-
-              <div className="flex gap-4">
-                <div className="form-group w-full">
-                  <label>Model</label>
-                  <input type="text" name="model" value={formData.model} onChange={handleChange} placeholder="Model #" />
-                </div>
-                <div className="form-group w-full">
-                  <label>Serial Number</label>
-                  <input type="text" name="serialNumber" value={formData.serialNumber} onChange={handleChange} placeholder="S/N" />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Installation Date</label>
-                <input type="date" name="installationDate" value={formData.installationDate} onChange={handleChange} />
               </div>
 
               <div className="form-group">
@@ -344,16 +329,11 @@ const AddMachine = () => {
                 <input type="number" name="startingRunningHours" value={formData.startingRunningHours} onChange={handleChange} required min="0" />
               </div>
 
-              <div className="flex gap-4">
-                <div className="form-group w-full">
-                  <label>Maint. Interval (Days)</label>
-                  <input type="number" name="maintenanceIntervalDays" value={formData.maintenanceIntervalDays} onChange={handleChange} required min="1" />
-                </div>
-                <div className="form-group w-full">
-                  <label>Maint. Interval (Hours)</label>
-                  <input type="number" name="maintenanceIntervalHours" value={formData.maintenanceIntervalHours} onChange={handleChange} required min="1" />
-                </div>
+              <div className="form-group">
+                <label>Maint. Interval (Days)</label>
+                <input type="number" name="maintenanceIntervalDays" value={formData.maintenanceIntervalDays} onChange={handleChange} required min="1" />
               </div>
+
 
               <button type="submit" className="btn btn-primary mt-4" style={{ width: '100%', padding: '13px' }}>
                 Next: Set Up Checklist &rarr;

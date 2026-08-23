@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchMachines } from '../services/googleSheets';
+import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs } from '../services/googleSheets';
 import { getUser, getAllCheckSessions } from '../services/storage';
+import WorkLogModal from '../components/WorkLogModal';
+
 
 // ─── Health logic ────────────────────────────────────────────────────────────
 /**
@@ -91,19 +93,32 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [workLogs, setWorkLogs] = useState([]);
+  const [isWorkLogModalOpen, setIsWorkLogModalOpen] = useState(false);
+
+  const loadAll = async (userObj) => {
+    setSyncing(true);
+    if (userObj?.isSync) {
+      await flushOfflineQueue();
+      await syncSharedDatabase();
+    }
+    const [data, logsData] = await Promise.all([
+      fetchMachines(),
+      fetchWorkLogs()
+    ]);
+    setMachines(data || []);
+    setWorkLogs(logsData || []);
+    setSessions(getAllCheckSessions());
+    setLoading(false);
+    setSyncing(false);
+  };
 
   useEffect(() => {
     const u = getUser();
     if (!u) { navigate('/'); return; }
     setUser(u);
-
-    const load = async () => {
-      const data = await fetchMachines();
-      setMachines(data || []);
-      setSessions(getAllCheckSessions());
-      setLoading(false);
-    };
-    load();
+    loadAll(u);
   }, [navigate]);
 
   // Dynamic filter tabs — only show types that actually exist in machines list
@@ -153,8 +168,27 @@ const Dashboard = () => {
           style={{ height: '38px', objectFit: 'contain' }}
         />
 
-        {/* Right: Add + Bell */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Right: Work Log + Add Machine + Bell */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button
+            onClick={() => setIsWorkLogModalOpen(true)}
+            style={{
+              background: '#ecfdf5',
+              color: '#059669',
+              border: '1px solid #a7f3d0',
+              borderRadius: '8px',
+              padding: '6px 12px',
+              fontSize: '0.82rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            + Work Log
+          </button>
+
           <button
             onClick={() => navigate('/add-machine')}
             style={{
@@ -162,8 +196,8 @@ const Dashboard = () => {
               color: '#fff',
               border: 'none',
               borderRadius: '8px',
-              padding: '6px 14px',
-              fontSize: '0.85rem',
+              padding: '6px 12px',
+              fontSize: '0.82rem',
               fontWeight: 700,
               cursor: 'pointer',
             }}
@@ -227,17 +261,137 @@ const Dashboard = () => {
               color: 'var(--color-primary)',
               margin: 0,
               letterSpacing: '-0.02em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
             Hi, {firstName}
+            {user?.isSync && (
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  color: '#10b981',
+                  background: '#ecfdf5',
+                  borderRadius: '99px',
+                  padding: '2px 8px',
+                  border: '1px solid #a7f3d0',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                {syncing ? 'Syncing...' : 'Synced'}
+              </span>
+            )}
           </h1>
           <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
 
+        {/* ── Active Shift Digital Work Logs (24h Notification Section) ── */}
+        {(() => {
+          const nowMs = Date.now();
+          const activeShiftLogs = workLogs.filter((l) => {
+            if (!l.createdAt) return false;
+            const logMs = new Date(l.createdAt).getTime();
+            return (nowMs - logMs) <= (24 * 60 * 60 * 1000); // 24 hours
+          });
+
+          return (
+            <div
+              className="card"
+              style={{
+                marginBottom: '16px',
+                padding: '14px 16px',
+                background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)',
+                border: '1px solid #bbf7d0',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Shift Work Logs ({activeShiftLogs.length} Active)
+                  </span>
+                </div>
+                <button
+                  onClick={() => navigate('/work-logs')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--color-primary)',
+                    fontSize: '0.78rem',
+                    fontWeight: 800,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  View All Past Work Logs &rarr;
+                </button>
+              </div>
+
+              {activeShiftLogs.length === 0 ? (
+                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-light)', fontStyle: 'italic' }}>
+                  No work logged during current shift. Click "+ Work Log" to record a job done.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {activeShiftLogs.slice(0, 3).map((log) => {
+                    const timeStr = log.createdAt
+                      ? new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      : '';
+                    const riskColor = log.recurrenceRisk === 'High' ? '#dc2626' : log.recurrenceRisk === 'Medium' ? '#d97706' : '#16a34a';
+
+                    return (
+                      <div
+                        key={log.id}
+                        onClick={() => navigate('/work-logs')}
+                        style={{
+                          background: '#fff',
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '10px',
+                          padding: '10px 12px',
+                          cursor: 'pointer',
+                          fontSize: '0.82rem',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: 800, color: 'var(--color-text)' }}>
+                            {log.location} &nbsp;<span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-light)' }}>· {timeStr} ({log.shift})</span>
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#4b5563', marginTop: '2px' }}>
+                            <strong>By {log.engineerName}:</strong> {log.fault} &rarr; <em>{log.actionTaken}</em>
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            fontSize: '0.65rem',
+                            fontWeight: 800,
+                            color: riskColor,
+                            background: `${riskColor}15`,
+                            padding: '2px 6px',
+                            borderRadius: '6px',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {log.recurrenceRisk} Risk
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ── Search bar ─────────────────────────────────────────────────── */}
-        <div style={{ position: 'relative', margin: '20px 0 12px' }}>
+        <div style={{ position: 'relative', margin: '12px 0' }}>
           <span
             style={{
               position: 'absolute',
@@ -547,6 +701,13 @@ const Dashboard = () => {
           to   { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      {/* Digital Work Log Modal */}
+      <WorkLogModal
+        isOpen={isWorkLogModalOpen}
+        onClose={() => setIsWorkLogModalOpen(false)}
+        onSuccess={() => loadAll(user)}
+      />
+
     </div>
   );
 };

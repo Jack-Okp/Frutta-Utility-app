@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { fetchMachines } from '../services/googleSheets';
+import { fetchMachines, syncSharedDatabase } from '../services/googleSheets';
 import { getCheckSessionsByMachine } from '../services/storage';
 import { deleteMachineLocal } from '../services/storage';
 import { FREQUENCY_META } from '../data/coolingTunnelChecklist';
@@ -142,6 +142,7 @@ const MachineDetail = () => {
 
   useEffect(() => {
     const load = async () => {
+      await syncSharedDatabase();
       const machines = await fetchMachines();
       const found = machines.find((m) => String(m.machineId) === String(id));
       setMachine(found || null);
@@ -179,9 +180,11 @@ const MachineDetail = () => {
   const machineImage = getMachineImage(machine.machineType);
 
   // ── Decommission handler ──────────────────────────────────────────────────
+  const modelRequired = !!machine.model && machine.model !== '—' && machine.model !== '';
+
   const canDecommission =
     decommForm.name.trim().toLowerCase() === machine.machineName?.trim().toLowerCase() &&
-    decommForm.model.trim().toLowerCase() === (machine.model || '').trim().toLowerCase() &&
+    (!modelRequired || decommForm.model.trim().toLowerCase() === machine.model.trim().toLowerCase()) &&
     decommForm.date.trim() !== '';
 
   const handleDecommission = () => {
@@ -622,21 +625,23 @@ const MachineDetail = () => {
                 />
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Model Number</label>
-                <input
-                  id="decomm-model"
-                  type="text"
-                  placeholder={machine.model ? `Type "${machine.model}" exactly` : 'Enter model number'}
-                  value={decommForm.model}
-                  onChange={(e) => setDecommForm((f) => ({ ...f, model: e.target.value }))}
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: '10px', boxSizing: 'border-box',
-                    border: `1.5px solid ${decommForm.model && decommForm.model.trim().toLowerCase() === (machine.model || '').trim().toLowerCase() ? '#86efac' : '#e5e7eb'}`,
-                    fontSize: '0.88rem', outline: 'none', background: '#f9fafb', transition: 'border-color 0.15s',
-                  }}
-                />
-              </div>
+              {modelRequired && (
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Model Number</label>
+                  <input
+                    id="decomm-model"
+                    type="text"
+                    placeholder={`Type "${machine.model}" exactly`}
+                    value={decommForm.model}
+                    onChange={(e) => setDecommForm((f) => ({ ...f, model: e.target.value }))}
+                    style={{
+                      width: '100%', padding: '10px 12px', borderRadius: '10px', boxSizing: 'border-box',
+                      border: `1.5px solid ${decommForm.model && decommForm.model.trim().toLowerCase() === machine.model.toLowerCase() ? '#86efac' : '#e5e7eb'}`,
+                      fontSize: '0.88rem', outline: 'none', background: '#f9fafb', transition: 'border-color 0.15s',
+                    }}
+                  />
+                </div>
+              )}
 
               <div>
                 <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '6px' }}>Date of Decommissioning</label>
