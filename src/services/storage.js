@@ -8,19 +8,27 @@ const WORK_LOGS_KEY = 'frutta_work_logs'; // Digital Work Logs
 
 const READ_WORK_LOGS_KEY = 'frutta_read_work_logs';
 
+export const getLogUniqueId = (log) => {
+  if (!log) return '';
+  return String(log.id || log.idField || log._id || `${log.createdAt}_${log.location}`);
+};
+
 export const getReadWorkLogIds = () => {
   try {
     const raw = localStorage.getItem(READ_WORK_LOGS_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed = raw ? JSON.parse(raw) : [];
+    return parsed.map((id) => String(id));
   } catch (e) {
     return [];
   }
 };
 
 export const markWorkLogAsRead = (logId) => {
+  if (!logId) return;
+  const strId = String(logId);
   const readIds = getReadWorkLogIds();
-  if (!readIds.includes(logId)) {
-    readIds.push(logId);
+  if (!readIds.includes(strId)) {
+    readIds.push(strId);
     localStorage.setItem(READ_WORK_LOGS_KEY, JSON.stringify(readIds));
   }
 };
@@ -29,8 +37,10 @@ export const markMultipleWorkLogsAsRead = (logIds = []) => {
   const readIds = getReadWorkLogIds();
   let updated = false;
   logIds.forEach((id) => {
-    if (!readIds.includes(id)) {
-      readIds.push(id);
+    if (!id) return;
+    const strId = String(id);
+    if (!readIds.includes(strId)) {
+      readIds.push(strId);
       updated = true;
     }
   });
