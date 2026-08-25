@@ -266,7 +266,7 @@ const Dashboard = () => {
           </p>
         </div>
 
-        {/* ── Active Shift Digital Work Logs (24h Notification Section) ── */}
+        {/* ── Active Shift Digital Work Logs Banner ── */}
         {(() => {
           const nowMs = Date.now();
           const activeShiftLogs = workLogs.filter((l) => {
@@ -275,93 +275,55 @@ const Dashboard = () => {
             return (nowMs - logMs) <= (24 * 60 * 60 * 1000); // 24 hours
           });
 
+          if (activeShiftLogs.length === 0) return null;
+
           return (
             <div
-              className="card"
+              onClick={() => navigate('/work-logs')}
               style={{
                 marginBottom: '16px',
-                padding: '14px 16px',
-                background: 'linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)',
-                border: '1px solid #bbf7d0',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
+                border: '1.5px solid #a7f3d0',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.12)',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Shift Work Logs ({activeShiftLogs.length} Active)
-                  </span>
-                </div>
-                <button
-                  onClick={() => navigate('/work-logs')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-primary)',
-                    fontSize: '0.78rem',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    background: '#059669',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     fontWeight: 800,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    padding: 0,
+                    fontSize: '0.82rem',
+                    flexShrink: 0,
                   }}
                 >
-                  View All &rarr;
-                </button>
+                  {activeShiftLogs.length}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#065f46' }}>
+                    New work logs added
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#047857' }}>
+                    Click here to view full work logs & breakdown history
+                  </div>
+                </div>
               </div>
 
-              {activeShiftLogs.length === 0 ? (
-                <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-light)', fontStyle: 'italic' }}>
-                  No work logged during current shift. Click "+ Work Log" to record a job done.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {activeShiftLogs.slice(0, 3).map((log) => {
-                    const timeStr = log.createdAt
-                      ? new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                      : '';
-                    const riskColor = log.recurrenceRisk === 'High' ? '#dc2626' : log.recurrenceRisk === 'Medium' ? '#d97706' : '#16a34a';
-
-                    return (
-                      <div
-                        key={log.id}
-                        onClick={() => navigate('/work-logs')}
-                        style={{
-                          background: '#fff',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '10px',
-                          padding: '10px 12px',
-                          cursor: 'pointer',
-                          fontSize: '0.82rem',
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                        }}
-                      >
-                        <div>
-                          <div style={{ fontWeight: 800, color: 'var(--color-text)' }}>
-                            {log.location} &nbsp;<span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-light)' }}>· {timeStr} ({log.shift})</span>
-                          </div>
-                          <div style={{ fontSize: '0.78rem', color: '#4b5563', marginTop: '2px' }}>
-                            <strong>By {log.engineerName}:</strong> {log.fault} &rarr; <em>{log.actionTaken}</em>
-                          </div>
-                        </div>
-                        <span
-                          style={{
-                            fontSize: '0.65rem',
-                            fontWeight: 800,
-                            color: riskColor,
-                            background: `${riskColor}15`,
-                            padding: '2px 6px',
-                            borderRadius: '6px',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {log.recurrenceRisk} Risk
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <span style={{ fontWeight: 800, color: '#065f46', fontSize: '0.9rem' }}>
+                &rarr;
+              </span>
             </div>
           );
         })()}
