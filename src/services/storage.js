@@ -6,6 +6,39 @@ const TEMPLATES_KEY = 'frutta_templates';
 const CT_SESSIONS_KEY = 'ct_check_sessions'; // Cooling Tunnel checklist sessions
 const WORK_LOGS_KEY = 'frutta_work_logs'; // Digital Work Logs
 
+const READ_WORK_LOGS_KEY = 'frutta_read_work_logs';
+
+export const getReadWorkLogIds = () => {
+  try {
+    const raw = localStorage.getItem(READ_WORK_LOGS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+};
+
+export const markWorkLogAsRead = (logId) => {
+  const readIds = getReadWorkLogIds();
+  if (!readIds.includes(logId)) {
+    readIds.push(logId);
+    localStorage.setItem(READ_WORK_LOGS_KEY, JSON.stringify(readIds));
+  }
+};
+
+export const markMultipleWorkLogsAsRead = (logIds = []) => {
+  const readIds = getReadWorkLogIds();
+  let updated = false;
+  logIds.forEach((id) => {
+    if (!readIds.includes(id)) {
+      readIds.push(id);
+      updated = true;
+    }
+  });
+  if (updated) {
+    localStorage.setItem(READ_WORK_LOGS_KEY, JSON.stringify(readIds));
+  }
+};
+
 export const saveUser = (userData) => {
   localStorage.setItem(USER_KEY, JSON.stringify(userData));
 };

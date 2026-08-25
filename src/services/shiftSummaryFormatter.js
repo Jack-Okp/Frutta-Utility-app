@@ -1,4 +1,80 @@
-// src/services/shiftSummaryFormatter.js
+/**
+ * Clinical Shift Summary Availability Window Check:
+ * Morning shift closing report: Available 7:00 PM (19:00) to 8:00 PM (20:00)
+ * Night shift closing report: Available 7:00 AM (07:00) to 8:00 AM (08:00)
+ */
+export const checkShiftSummaryAvailability = (dateObj = new Date()) => {
+  const hour = dateObj.getHours(); // 0 to 23
+  
+  const isMorningWindow = (hour === 19); // 19:00 - 19:59 (7:00 PM - 8:00 PM)
+  const isNightWindow = (hour === 7);   // 07:00 - 07:59 (7:00 AM - 8:00 AM)
+
+  if (isMorningWindow) {
+    return {
+      available: true,
+      activeShift: 'Morning',
+      targetDate: dateObj,
+      windowLabel: 'Morning Shift Closing Window (7:00 PM - 8:00 PM)',
+    };
+  }
+
+  if (isNightWindow) {
+    const shiftDate = new Date(dateObj);
+    shiftDate.setDate(shiftDate.getDate() - 1);
+    return {
+      available: true,
+      activeShift: 'Night',
+      targetDate: shiftDate,
+      windowLabel: 'Night Shift Closing Window (7:00 AM - 8:00 AM)',
+    };
+  }
+
+  return {
+    available: false,
+    activeShift: (hour >= 7 && hour < 19) ? 'Morning' : 'Night',
+    message: 'Shift summary not available until end of shift',
+    details: 'Shift closing reports are only accessible during official shift handover hours: Morning Shift (7:00 PM – 8:00 PM) & Night Shift (7:00 AM – 8:00 AM).',
+  };
+};
+
+/**
+ * Filter work logs strictly for the specified shift and date.
+ * Guarantees zero leakage from previous shifts or previous dates.
+ */
+export const filterWorkLogsForShift = (allLogs = [], targetShift = 'Morning', targetDateStr = '') => {
+  const targetDateYMD = targetDateStr || new Date().toISOString().split('T')[0];
+
+  return allLogs.filter((log) => {
+    if (!log) return false;
+
+    // Must match shift parameter if specified on log
+    if (log.shift && log.shift !== targetShift) return false;
+
+    const logDate = log.createdAt ? new Date(log.createdAt) : log.date ? new Date(log.date) : null;
+    if (!logDate || isNaN(logDate.getTime())) return false;
+
+    const logYMD = logDate.toISOString().split('T')[0];
+    const logHour = logDate.getHours();
+
+    if (targetShift === 'Morning') {
+      // Created on targetDateYMD between 7:00 AM and 6:59 PM (07:00 - 18:59)
+      return logYMD === targetDateYMD && logHour >= 7 && logHour < 19;
+    } else if (targetShift === 'Night') {
+      // Night shift starts targetDateYMD at 19:00 and ends targetDateYMD+1 at 07:00
+      const startDate = new Date(targetDateYMD);
+      const nextDate = new Date(startDate);
+      nextDate.setDate(nextDate.getDate() + 1);
+      const nextDateYMD = nextDate.toISOString().split('T')[0];
+
+      const isStartEvening = (logYMD === targetDateYMD && logHour >= 19);
+      const isNextMorning = (logYMD === nextDateYMD && logHour < 7);
+
+      return isStartEvening || isNextMorning;
+    }
+
+    return false;
+  });
+};
 
 /**
  * Format a clean, professional WhatsApp text message for the daily shift closing report.

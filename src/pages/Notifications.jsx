@@ -73,6 +73,21 @@ export const markNotifAttended = (notifId) => {
   }
 };
 
+export const markAllNotificationsAsAttended = (notifIds = []) => {
+  const attended = getAttendedNotifs();
+  let updated = false;
+  const now = new Date().toISOString();
+  notifIds.forEach((id) => {
+    if (!attended.some((a) => a.id === id)) {
+      attended.push({ id, attendedAt: now });
+      updated = true;
+    }
+  });
+  if (updated) {
+    localStorage.setItem(ATTENDED_NOTIFS_KEY, JSON.stringify(attended));
+  }
+};
+
 const Notifications = () => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
@@ -91,6 +106,12 @@ const Notifications = () => {
     setAttendedIds(attended.map((a) => a.id));
     setNotifications(all);
     setLoading(false);
+
+    // Auto-mark all active notifications as read when opening notification page
+    const unreadIds = all.filter((n) => !attended.some((a) => a.id === n.id)).map((n) => n.id);
+    if (unreadIds.length > 0) {
+      markAllNotificationsAsAttended(unreadIds);
+    }
   };
 
   useEffect(() => {

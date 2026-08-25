@@ -3,14 +3,21 @@ import { useNavigate } from 'react-router-dom';
 import { getUser } from '../services/storage';
 import { fetchMachines, fetchWorkLogs } from '../services/googleSheets';
 import { detectCurrentShift } from '../components/WorkLogModal';
-import { formatWhatsAppShiftSummary } from '../services/shiftSummaryFormatter';
+import {
+  formatWhatsAppShiftSummary,
+  checkShiftSummaryAvailability,
+  filterWorkLogsForShift,
+} from '../services/shiftSummaryFormatter';
 
 const ShiftSummary = () => {
   const navigate = useNavigate();
   const user = getUser();
-  const [shift, setShift] = useState(detectCurrentShift());
+  
+  const availability = checkShiftSummaryAvailability();
+  const [overrideLock, setOverrideLock] = useState(false);
+  const [shift, setShift] = useState(availability.activeShift || detectCurrentShift());
   const [machines, setMachines] = useState([]);
-  const [workLogs, setWorkLogs] = useState([]);
+  const [allRawWorkLogs, setAllRawWorkLogs] = useState([]);
   const [sparesNotes, setSparesNotes] = useState('');
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -31,20 +38,16 @@ const ShiftSummary = () => {
         note: '',
       }));
 
-      const nowMs = Date.now();
-      const shiftLogs = (logsData || []).filter((l) => {
-        if (!l.createdAt) return false;
-        const logMs = new Date(l.createdAt).getTime();
-        return (nowMs - logMs) <= (24 * 60 * 60 * 1000);
-      });
-
       setMachines(mappedMachines);
-      setWorkLogs(shiftLogs);
+      setAllRawWorkLogs(logsData || []);
       setLoading(false);
     };
 
     load();
   }, []);
+
+  const todayYMD = new Date().toISOString().split('T')[0];
+  const activeShiftLogs = filterWorkLogsForShift(allRawWorkLogs, shift, todayYMD);
 
   const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   const engineerName = user?.name || user?.engineerName || 'Engineer';
@@ -54,7 +57,7 @@ const ShiftSummary = () => {
     date: todayStr,
     engineerName,
     machines,
-    workLogs,
+    workLogs: activeShiftLogs,
     sparesNotes,
   });
 
@@ -125,7 +128,85 @@ const ShiftSummary = () => {
 
       <div className="container" style={{ padding: '16px', maxWidth: '720px', margin: '0 auto' }}>
         
-        {/* Shift Selection Bar */}
+        {/* Availability Window Lock Screen */}
+        {!availability.available && !overrideLock && (
+          <div
+            className="card mb-4"
+            style={{
+              padding: '24px',
+              textAlign: 'center',
+              background: '#fffbeb',
+              border: '1.5px solid #fde68a',
+            }}
+          >
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '50%',
+                background: '#f59e0b',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 12px',
+                fontSize: '1.2rem',
+                fontWeight: 800,
+              }}
+            >
+              !
+            </div>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#92400e', margin: '0 0 8px' }}>
+              Shift Summary Not Available Until End of Shift
+            </h2>
+            <p style={{ fontSize: '0.82rem', color: '#b45309', margin: '0 0 16px', lineHeight: 1.5 }}>
+              Shift closing reports are only accessible during official shift handover hours:
+              <br />
+              &bull; <strong>Morning Shift Report</strong>: Available 7:00 PM – 8:00 PM
+              <br />
+              &bull; <strong>Night Shift Report</strong>: Available 7:00 AM – 8:00 AM
+            </p>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => navigate('/dashboard')}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #d1d5db',
+                  background: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.82rem',
+                  color: '#374151',
+                  cursor: 'pointer',
+                }}
+              >
+                Back to Dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => setOverrideLock(true)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#d97706',
+                  color: '#fff',
+                  fontWeight: 800,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                }}
+              >
+                Admin / Test Preview Override
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(availability.available || overrideLock) && (
+          <>
+            {/* Shift Selection Bar */}
         <div className="card mb-4" style={{ padding: '16px' }}>
           <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 800, color: 'var(--color-text)', marginBottom: '8px' }}>
             Select Active Shift & Date
@@ -415,6 +496,8 @@ const ShiftSummary = () => {
           Open in WhatsApp
         </button>
       </div>
+      </>
+      )}
 
     </div>
   );

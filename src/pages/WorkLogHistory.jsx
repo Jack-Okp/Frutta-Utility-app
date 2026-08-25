@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchWorkLogs } from '../services/googleSheets';
 import { exportWorkLogsToExcel } from '../services/excelWorkLogExport';
+import { markMultipleWorkLogsAsRead } from '../services/storage';
 import WorkLogModal from '../components/WorkLogModal';
 
 const RiskBadge = ({ risk }) => {
@@ -42,8 +43,15 @@ const WorkLogHistory = () => {
   const loadData = async () => {
     setLoading(true);
     const data = await fetchWorkLogs();
-    setLogs(data || []);
+    const loadedLogs = data || [];
+    setLogs(loadedLogs);
     setLoading(false);
+
+    // Auto-mark logs as read when viewing work log history page
+    const logIds = loadedLogs.map((l) => l.id).filter(Boolean);
+    if (logIds.length > 0) {
+      markMultipleWorkLogsAsRead(logIds);
+    }
   };
 
   useEffect(() => {

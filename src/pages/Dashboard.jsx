@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs } from '../services/googleSheets';
-import { getUser, getAllCheckSessions, getMachinesLocal, getWorkLogsLocal } from '../services/storage';
-import WorkLogModal from '../components/WorkLogModal';
+import { getUser, getAllCheckSessions, getMachinesLocal, getWorkLogsLocal, getReadWorkLogIds, markMultipleWorkLogsAsRead } from '../services/storage';
+import WorkLogModal, { detectCurrentShift } from '../components/WorkLogModal';
 import ShiftSummaryModal from '../components/ShiftSummaryModal';
-import { buildAllNotifications, getAttendedNotifs, markNotifAttended } from './Notifications';
+import { buildAllNotifications, getAttendedNotifs, markNotifAttended, markAllNotificationsAsAttended } from './Notifications';
+import { filterWorkLogsForShift } from '../services/shiftSummaryFormatter';
 
 
 // ─── Health logic ────────────────────────────────────────────────────────────
@@ -184,7 +185,12 @@ const Dashboard = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <button
             id="notif-bell-btn"
-            onClick={() => navigate('/notifications')}
+            onClick={() => {
+              if (activeNotifications.length > 0) {
+                markAllNotificationsAsAttended(activeNotifications.map((n) => n.id));
+              }
+              navigate('/notifications');
+            }}
             style={{
               background: 'none',
               border: 'none',
@@ -226,60 +232,37 @@ const Dashboard = () => {
         </div>
       </div>
 
-      <div style={{ padding: '0 16px' }}>
+      <div className="container" style={{ paddingBottom: '100px' }}>
 
-        {/* ── Greeting ───────────────────────────────────────────────────── */}
-        <div style={{ paddingTop: '20px', paddingBottom: '4px' }}>
-          <h1
-            style={{
-              fontSize: '1.6rem',
-              fontWeight: 800,
-              color: 'var(--color-primary)',
-              margin: 0,
-              letterSpacing: '-0.02em',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            Hi, {firstName}
-            {user?.isSync && (
-              <span
-                style={{
-                  fontSize: '0.62rem',
-                  fontWeight: 800,
-                  color: '#10b981',
-                  background: '#ecfdf5',
-                  borderRadius: '99px',
-                  padding: '2px 8px',
-                  border: '1px solid #a7f3d0',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                {syncing ? 'Syncing...' : 'Synced'}
-              </span>
-            )}
-          </h1>
-          <p style={{ margin: '2px 0 0', fontSize: '0.8rem', color: 'var(--color-text-light)' }}>
+        {/* ── Greeting Banner ────────────────────────────────────────────── */}
+        <div className="card" style={{ marginBottom: '16px', padding: '16px 20px', background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)', color: '#fff' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#ffffff' }}>
+              Welcome, {user?.engineerName || 'Engineer'}
+            </h1>
+          </div>
+          <p style={{ margin: '4px 0 0', fontSize: '0.8rem', opacity: 0.9, color: '#e8f5e9' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
 
         {/* ── Active Shift Digital Work Logs Banner ── */}
         {(() => {
-          const nowMs = Date.now();
-          const activeShiftLogs = workLogs.filter((l) => {
-            if (!l.createdAt) return false;
-            const logMs = new Date(l.createdAt).getTime();
-            return (nowMs - logMs) <= (24 * 60 * 60 * 1000); // 24 hours
-          });
+          const currentShift = detectCurrentShift();
+          const todayYMD = new Date().toISOString().split('T')[0];
+          const activeShiftLogs = filterWorkLogsForShift(workLogs, currentShift, todayYMD);
 
-          if (activeShiftLogs.length === 0) return null;
+          const readLogIds = getReadWorkLogIds();
+          const unreadLogs = activeShiftLogs.filter((l) => !readLogIds.includes(l.id));
+
+          if (unreadLogs.length === 0) return null;
 
           return (
             <div
-              onClick={() => navigate('/work-logs')}
+              onClick={() => {
+                markMultipleWorkLogsAsRead(unreadLogs.map((l) => l.id));
+                navigate('/work-logs');
+              }}
               style={{
                 marginBottom: '16px',
                 padding: '12px 16px',
@@ -309,7 +292,7 @@ const Dashboard = () => {
                     flexShrink: 0,
                   }}
                 >
-                  {activeShiftLogs.length}
+                  {unreadLogs.length}
                 </div>
                 <div>
                   <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#065f46' }}>
@@ -330,15 +313,16 @@ const Dashboard = () => {
 
         {/* ── Notification Alert Banner ── */}
         {(() => {
-          const allNotifs = buildAllNotifications(machines, sessions, workLogs);
-          const attended = getAttendedNotifs();
-          const activeNotifs = allNotifs.filter((n) => !attended.some((a) => a.id === n.id));
+          const activeNotifs = activeNotifications;
 
           if (activeNotifs.length === 0) return null;
 
           return (
             <div
-              onClick={() => navigate('/notifications')}
+              onClick={() => {
+                markAllNotificationsAsAttended(activeNotifs.map((n) => n.id));
+                navigate('/notifications');
+              }}
               style={{
                 marginBottom: '16px',
                 padding: '12px 16px',
