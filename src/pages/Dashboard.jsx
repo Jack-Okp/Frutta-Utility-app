@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs } from '../services/googleSheets';
-import { getUser, getAllCheckSessions } from '../services/storage';
+import { getUser, getAllCheckSessions, getMachinesLocal, getWorkLogsLocal } from '../services/storage';
 import WorkLogModal from '../components/WorkLogModal';
 import ShiftSummaryModal from '../components/ShiftSummaryModal';
 import { buildAllNotifications, getAttendedNotifs, markNotifAttended } from './Notifications';
@@ -102,21 +102,26 @@ const Dashboard = () => {
   const [isFabOpen, setIsFabOpen] = useState(false);
   const [attendedNotifIds, setAttendedNotifIds] = useState([]);
 
-  const loadAll = async (userObj) => {
-    setSyncing(true);
-    if (userObj?.isSync) {
-      await flushOfflineQueue();
-      await syncSharedDatabase();
-    }
-    const [data, logsData] = await Promise.all([
-      fetchMachines(),
-      fetchWorkLogs()
-    ]);
-    setMachines(data || []);
-    setWorkLogs(logsData || []);
+  const loadAll = (userObj) => {
+    // 1. Instantly render from local cache (0ms latency)
+    setMachines(getMachinesLocal());
+    setWorkLogs(getWorkLogsLocal());
     setSessions(getAllCheckSessions());
     setLoading(false);
-    setSyncing(false);
+
+    // 2. Trigger background sync without blocking page render
+    if (userObj?.isSync) {
+      setSyncing(true);
+      flushOfflineQueue()
+        .then(() => syncSharedDatabase())
+        .then(() => {
+          setMachines(getMachinesLocal());
+          setWorkLogs(getWorkLogsLocal());
+          setSessions(getAllCheckSessions());
+          setSyncing(false);
+        })
+        .catch(() => setSyncing(false));
+    }
   };
 
   useEffect(() => {
@@ -361,87 +366,62 @@ const Dashboard = () => {
           );
         })()}
 
-        {/* ── Top 2 Recent Notifications Section ── */}
+        {/* ── Notification Alert Banner ── */}
         {(() => {
           const allNotifs = buildAllNotifications(machines, sessions, workLogs);
           const attended = getAttendedNotifs();
           const activeNotifs = allNotifs.filter((n) => !attended.some((a) => a.id === n.id));
-          const top2 = activeNotifs.slice(0, 2);
 
-          if (top2.length === 0) return null;
+          if (activeNotifs.length === 0) return null;
 
           return (
             <div
-              className="card"
+              onClick={() => navigate('/notifications')}
               style={{
                 marginBottom: '16px',
-                padding: '14px 16px',
-                background: '#fff',
-                border: '1.5px solid #fef3c7',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+                border: '1.5px solid #fde68a',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(245, 158, 11, 0.12)',
+                transition: 'transform 0.15s ease',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#d97706', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Recent System Alerts ({activeNotifs.length})
-                </span>
-                <button
-                  onClick={() => navigate('/notifications')}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div
                   style={{
-                    background: 'none',
-                    border: 'none',
-                    color: 'var(--color-primary)',
-                    fontSize: '0.78rem',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    background: '#f59e0b',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     fontWeight: 800,
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                    padding: 0,
+                    fontSize: '0.82rem',
+                    flexShrink: 0,
                   }}
                 >
-                  View All Notifications &rarr;
-                </button>
+                  {activeNotifs.length}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#92400e' }}>
+                    You have new notifications
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#b45309' }}>
+                    Click here to view all system alerts
+                  </div>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {top2.map((n) => (
-                  <div
-                    key={n.id}
-                    style={{
-                      background: n.type === 'danger' ? '#fef2f2' : '#fffbeb',
-                      borderLeft: n.type === 'danger' ? '3px solid #ef4444' : '3px solid #f59e0b',
-                      borderRadius: '8px',
-                      padding: '8px 10px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      fontSize: '0.78rem',
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 800, color: 'var(--color-text)' }}>{n.title}</div>
-                      <div style={{ color: '#6b7280', fontSize: '0.72rem' }}>{n.message}</div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        markNotifAttended(n.id);
-                        setAttendedNotifIds((prev) => [...prev, n.id]);
-                      }}
-                      style={{
-                        background: '#fff',
-                        border: '1px solid #d1d5db',
-                        borderRadius: '6px',
-                        padding: '3px 8px',
-                        fontSize: '0.68rem',
-                        fontWeight: 800,
-                        cursor: 'pointer',
-                        color: '#059669',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      Attend
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <span style={{ fontWeight: 800, color: '#92400e', fontSize: '0.9rem' }}>
+                &rarr;
+              </span>
             </div>
           );
         })()}
@@ -822,7 +802,7 @@ const Dashboard = () => {
             </button>
 
             <button
-              onClick={() => { setIsFabOpen(false); setIsShiftSummaryModalOpen(true); }}
+              onClick={() => { setIsFabOpen(false); navigate('/shift-summary'); }}
               style={{
                 background: '#eff6ff',
                 color: '#2563eb',

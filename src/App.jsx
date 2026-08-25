@@ -12,6 +12,7 @@ import TemplateBuilder from './pages/TemplateBuilder';
 import ChecklistEditor from './pages/ChecklistEditor';
 import WorkLogHistory from './pages/WorkLogHistory';
 import Notifications from './pages/Notifications';
+import ShiftSummary from './pages/ShiftSummary';
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
       <Route path="/machine/:id/edit-checklist" element={<ChecklistEditor />} />
       <Route path="/work-logs" element={<WorkLogHistory />} />
       <Route path="/notifications" element={<Notifications />} />
+      <Route path="/shift-summary" element={<ShiftSummary />} />
       <Route path="/export" element={<Export />} />
     </Routes>
   );

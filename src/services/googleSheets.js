@@ -69,13 +69,16 @@ export const syncUser = async (user) => {
 };
 
 export const fetchMachines = async () => {
-  if (!isUserSync()) return getMachinesLocal();
-  const data = await fetchFromGoogle('Machines');
-  if (data && Array.isArray(data)) {
-    localStorage.setItem('frutta_machines', JSON.stringify(data));
-    return data;
+  const localData = getMachinesLocal();
+  if (isUserSync()) {
+    // Non-blocking background revalidation
+    fetchFromGoogle('Machines').then((data) => {
+      if (data && Array.isArray(data)) {
+        localStorage.setItem('frutta_machines', JSON.stringify(data));
+      }
+    }).catch(console.error);
   }
-  return getMachinesLocal();
+  return localData;
 };
 
 export const saveMachine = async (machine) => {
@@ -99,13 +102,16 @@ export const updateMachine = async (machine) => {
 };
 
 export const fetchTemplates = async () => {
-  if (!isUserSync()) return getTemplatesLocal();
-  const data = await fetchFromGoogle('Templates');
-  if (data && Array.isArray(data)) {
-    localStorage.setItem('frutta_templates', JSON.stringify(data));
-    return data;
+  const localData = getTemplatesLocal();
+  if (isUserSync()) {
+    // Non-blocking background revalidation
+    fetchFromGoogle('Templates').then((data) => {
+      if (data && Array.isArray(data)) {
+        localStorage.setItem('frutta_templates', JSON.stringify(data));
+      }
+    }).catch(console.error);
   }
-  return getTemplatesLocal();
+  return localData;
 };
 
 export const saveTemplate = async (template) => {
@@ -159,39 +165,31 @@ export const syncCheckSession = async (session) => {
 export const syncSharedDatabase = async () => {
   if (!isUserSync()) return;
   
-  // 1. Fetch and cache machines
-  const machines = await fetchFromGoogle('Machines');
-  if (machines && Array.isArray(machines)) {
-    localStorage.setItem('frutta_machines', JSON.stringify(machines));
-  }
-  
-  // 2. Fetch and cache check sessions
-  const sessions = await fetchFromGoogle('CheckSessions');
-  if (sessions && Array.isArray(sessions)) {
-    localStorage.setItem('ct_check_sessions', JSON.stringify(sessions));
-  }
-
-  // 3. Fetch and cache templates
-  const templates = await fetchFromGoogle('Templates');
-  if (templates && Array.isArray(templates)) {
-    localStorage.setItem('frutta_templates', JSON.stringify(templates));
-  }
-
-  // 4. Fetch and cache Digital Work Logs
-  const workLogs = await fetchFromGoogle('WorkLogs');
-  if (workLogs && Array.isArray(workLogs)) {
-    localStorage.setItem('frutta_work_logs', JSON.stringify(workLogs));
-  }
+  // Non-blocking background sync for all sheets
+  Promise.all([
+    fetchFromGoogle('Machines'),
+    fetchFromGoogle('CheckSessions'),
+    fetchFromGoogle('Templates'),
+    fetchFromGoogle('WorkLogs'),
+  ]).then(([machines, sessions, templates, workLogs]) => {
+    if (machines && Array.isArray(machines)) localStorage.setItem('frutta_machines', JSON.stringify(machines));
+    if (sessions && Array.isArray(sessions)) localStorage.setItem('ct_check_sessions', JSON.stringify(sessions));
+    if (templates && Array.isArray(templates)) localStorage.setItem('frutta_templates', JSON.stringify(templates));
+    if (workLogs && Array.isArray(workLogs)) localStorage.setItem('frutta_work_logs', JSON.stringify(workLogs));
+  }).catch(console.error);
 };
 
 export const fetchWorkLogs = async () => {
-  if (!isUserSync()) return getWorkLogsLocal();
-  const data = await fetchFromGoogle('WorkLogs');
-  if (data && Array.isArray(data)) {
-    localStorage.setItem('frutta_work_logs', JSON.stringify(data));
-    return data;
+  const localData = getWorkLogsLocal();
+  if (isUserSync()) {
+    // Non-blocking background revalidation
+    fetchFromGoogle('WorkLogs').then((data) => {
+      if (data && Array.isArray(data)) {
+        localStorage.setItem('frutta_work_logs', JSON.stringify(data));
+      }
+    }).catch(console.error);
   }
-  return getWorkLogsLocal();
+  return localData;
 };
 
 export const saveWorkLog = async (workLog) => {
