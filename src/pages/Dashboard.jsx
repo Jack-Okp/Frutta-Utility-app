@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs } from '../services/googleSheets';
+import { fetchMachines, syncSharedDatabase, flushOfflineQueue, fetchWorkLogs, markWorkLogReadShared } from '../services/googleSheets';
 import { getUser, getAllCheckSessions, getMachinesLocal, getWorkLogsLocal, getReadWorkLogIds, markMultipleWorkLogsAsRead, getLogUniqueId } from '../services/storage';
 import WorkLogModal, { detectCurrentShift } from '../components/WorkLogModal';
 import ShiftSummaryModal from '../components/ShiftSummaryModal';
@@ -253,14 +253,18 @@ const Dashboard = () => {
           const activeShiftLogs = filterWorkLogsForShift(workLogs, currentShift, todayYMD);
 
           const readLogIds = getReadWorkLogIds();
-          const unreadLogs = activeShiftLogs.filter((l) => !readLogIds.includes(getLogUniqueId(l)));
+          const unreadLogs = activeShiftLogs.filter(
+            (l) => l.status !== 'Read' && !readLogIds.includes(getLogUniqueId(l))
+          );
 
           if (unreadLogs.length === 0) return null;
 
           return (
             <div
               onClick={() => {
-                markMultipleWorkLogsAsRead(unreadLogs.map((l) => getLogUniqueId(l)));
+                const ids = unreadLogs.map((l) => getLogUniqueId(l));
+                markMultipleWorkLogsAsRead(ids);
+                ids.forEach((id) => markWorkLogReadShared(id));
                 navigate('/work-logs');
               }}
               style={{

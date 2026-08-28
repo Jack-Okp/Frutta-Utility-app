@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { fetchWorkLogs } from '../services/googleSheets';
+import { fetchWorkLogs, markWorkLogReadShared } from '../services/googleSheets';
 import { exportWorkLogsToExcel } from '../services/excelWorkLogExport';
 import { markMultipleWorkLogsAsRead, getLogUniqueId } from '../services/storage';
 import WorkLogModal from '../components/WorkLogModal';
@@ -33,6 +33,7 @@ const RiskBadge = ({ risk }) => {
 const WorkLogHistory = () => {
   const navigate = useNavigate();
   const [logs, setLogs] = useState([]);
+  const [allFetchedLogs, setAllFetchedLogs] = useState([]); // permanent archive for Excel
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [shiftFilter, setShiftFilter] = useState('All');
@@ -44,13 +45,24 @@ const WorkLogHistory = () => {
     setLoading(true);
     const data = await fetchWorkLogs();
     const loadedLogs = data || [];
-    setLogs(loadedLogs);
+    setAllFetchedLogs(loadedLogs);
+
+    // In-app work log display: Only show logs created within the last 24 hours
+    const nowMs = Date.now();
+    const logs24h = loadedLogs.filter((l) => {
+      if (!l.createdAt) return true; // keep fallback if no timestamp
+      const logMs = new Date(l.createdAt).getTime();
+      return (nowMs - logMs) <= (24 * 60 * 60 * 1000);
+    });
+
+    setLogs(logs24h);
     setLoading(false);
 
-    // Auto-mark logs as read when viewing work log history page
-    const logIds = loadedLogs.map((l) => getLogUniqueId(l)).filter(Boolean);
+    // Auto-mark logs as read when viewing work log history page & sync shared status across all 11 engineers
+    const logIds = logs24h.map((l) => getLogUniqueId(l)).filter(Boolean);
     if (logIds.length > 0) {
       markMultipleWorkLogsAsRead(logIds);
+      logIds.forEach((id) => markWorkLogReadShared(id));
     }
   };
 
@@ -115,8 +127,8 @@ const WorkLogHistory = () => {
           </div>
           <button
             className="btn btn-outline"
-            onClick={() => exportWorkLogsToExcel(filteredLogs, 'Frutta Utility - Digital Work Logs')}
-            disabled={filteredLogs.length === 0}
+            onClick={() => exportWorkLogsToExcel(allFetchedLogs.length > 0 ? allFetchedLogs : filteredLogs, 'Frutta Utility - Permanent Digital Work Logs')}
+            disabled={allFetchedLogs.length === 0 && filteredLogs.length === 0}
             style={{
               fontSize: '0.82rem',
               fontWeight: 800,

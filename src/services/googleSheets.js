@@ -3,7 +3,8 @@ import {
   getTemplatesLocal, saveTemplateLocal,
   getLogsLocal, saveLogLocal, getUser,
   getWorkLogsLocal, saveWorkLogLocal,
-  queueOfflineAction, getOfflineQueue, clearOfflineQueueItem
+  queueOfflineAction, getOfflineQueue, clearOfflineQueueItem,
+  getLogUniqueId, markWorkLogAsRead
 } from './storage';
 
 // Get URL from Vite environment variables
@@ -198,6 +199,21 @@ export const saveWorkLog = async (workLog) => {
     const success = await postToGoogle('WorkLogs', 'update', workLog, 'id', workLog.id);
     if (!success) {
       queueOfflineAction('WorkLogs', 'update', workLog);
+    }
+  }
+};
+
+export const markWorkLogReadShared = async (logId) => {
+  if (!logId) return;
+  markWorkLogAsRead(logId);
+  if (isUserSync()) {
+    const logs = getWorkLogsLocal();
+    const strId = String(logId);
+    const target = logs.find((l) => String(getLogUniqueId(l)) === strId);
+    if (target && target.status !== 'Read') {
+      target.status = 'Read';
+      saveWorkLogLocal(target);
+      postToGoogle('WorkLogs', 'update', { ...target, status: 'Read' }, 'id', target.id).catch(console.error);
     }
   }
 };

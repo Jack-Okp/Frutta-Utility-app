@@ -103,7 +103,6 @@ export const formatWhatsAppShiftSummary = ({
   lines.push('---------------------------------------');
   lines.push(`Shift: ${shift} Shift (${shift === 'Morning' ? '7:00 AM - 7:00 PM' : '7:00 PM - 7:00 AM'})`);
   lines.push(`Date: ${date}`);
-  lines.push(`Engineer: ${engineerName}`);
   lines.push('---------------------------------------');
   lines.push('');
 

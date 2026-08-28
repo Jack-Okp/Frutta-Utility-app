@@ -250,7 +250,7 @@ const ShiftSummary = () => {
             </button>
           </div>
           <div style={{ marginTop: '8px', fontSize: '0.78rem', color: 'var(--color-text-light)', textAlign: 'right' }}>
-            Date: <strong>{todayStr}</strong> &bull; Engineer: <strong>{engineerName}</strong>
+            Date: <strong>{todayStr}</strong>
           </div>
         </div>
 

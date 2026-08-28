@@ -210,6 +210,59 @@ const PWAManager = () => {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // ─── Shift End Web Push Notification Scheduler (7:00 PM & 7:00 AM) ───
+  useEffect(() => {
+    if (!('Notification' in window)) return;
+
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(console.error);
+    }
+
+    const checkShiftHandoverNotification = () => {
+      if (Notification.permission !== 'granted') return;
+
+      const now = new Date();
+      const hour = now.getHours();
+      const minute = now.getMinutes();
+      const todayYMD = now.toISOString().split('T')[0];
+
+      // Check if it's 7:00 PM (19:00) or 7:00 AM (07:00)
+      const isMorningEnd = hour === 19 && minute < 5; // 7:00 PM window
+      const isNightEnd = hour === 7 && minute < 5;    // 7:00 AM window
+
+      if (isMorningEnd || isNightEnd) {
+        const shiftName = isMorningEnd ? 'Morning' : 'Night';
+        const notifKey = `frutta_shift_notif_${shiftName}_${todayYMD}`;
+
+        if (!localStorage.getItem(notifKey)) {
+          localStorage.setItem(notifKey, 'sent');
+
+          const title = `🔔 Frutta ${shiftName} Shift Closing Time!`;
+          const options = {
+            body: `It is ${isMorningEnd ? '7:00 PM' : '7:00 AM'}. Tap here to compile and submit the ${shiftName} Shift Closing Report.`,
+            icon: '/pwa-icon-192.png',
+            badge: '/pwa-icon-192.png',
+            tag: `shift_summary_${shiftName}`,
+            data: { url: '/#/shift-summary' },
+          };
+
+          if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then((registration) => {
+              registration.showNotification(title, options);
+            });
+          } else {
+            new Notification(title, options);
+          }
+        }
+      }
+    };
+
+    const interval = setInterval(checkShiftHandoverNotification, 30000); // check every 30s
+    checkShiftHandoverNotification();
+
+    return () => clearInterval(interval);
+  }, []);
+
   const handleInstall = async () => {
     if (!installPrompt) return;
     setShowInstallBanner(false);
